@@ -1,172 +1,87 @@
 # loomy-accounts — Loomy provider plugin for CLIProxyAPI
 
-**v1.0.0** · 实测环境：CLIProxyAPI 8.0.53 / linux-arm64 · 2026-11
+**v2.0.0** · 实测：CLIProxyAPI 8.0.53 / linux-arm64
 
-把 Loomy（讯飞桌面 AI 助手）接入 CPA：一个账号一个 auth 文件，账号池由 CPA 自己的调度器管理，插件的管理面板负责看余额、看请求、看模型。
+把 Loomy（讯飞桌面 AI 助手）接入 CPA：一个账号 = 一个 auth 文件，轮询、401 冷却、失败重试复用 CPA 原生调度；插件补 CPA 没有的部分——session 鉴权、密码续期、短信登录、积分额度，以及一个账号池控制台。
 
-把 Loomy（讯飞桌面 AI 助手）接入 CPA：一个账号 = 一个 auth 文件，池子由 CPA 自己的调度器管。
-
-- 客户端只看到 CPA 的一个 base-url 和一个 key
-- 账号轮询、401 冷却、失败重试、按账号统计全部复用 CPA 原生能力
-- 插件补的是 CPA 没有的那部分：session 鉴权、密码续期、短信登录、积分额度
+v1 → v2 的问题清单与修复见 [AUDIT.md](AUDIT.md)。
 
 ## 能力
 
-| capability | 提供什么 |
+| capability | 内容 |
 |---|---|
-| `auth_provider` | `auth.parse` 认凭证；`auth.refresh` 有密码就续期，没密码就验活 |
-| `executor` | 带 `Bearer <session>` 转发到 `loomyad.xunfei.cn`，兼容流式/非流式 |
-| `model_registrar` | 固定 8 个模型清单 |
-| `management_api` | 短信登录、密码加号、账号列表、积分查询 |
-| `quota_provider` | 每日额度条（每日 5000，用不完不结转）+ 永久积分 |
+| `auth_provider` | 识别 `{"type":"loomy","session",...}` 凭证；定时 refresh：先探活，到期前 4 天用密码重登，失败指数退避 |
+| `executor` | `lm/<模型>` → loomyad 网关；**真流式**（逐事件转发）；中文自动转 `\uXXXX`；会话失效 → 401，额度类错误 → 429 让 CPA 换号 |
+| `model_registrar` | 按账号拉取网关模型清单（10 分钟缓存），失败回落静态清单 |
+| `quota_provider` | 每日额度条（5000/天）+ 永久积分 |
+| `management_api` | 控制台数据与加号接口，全部需要 CPA 管理密钥 |
+
+## 控制台
+
+CPA 管理中心 → 插件页 → **Loomy 账号池**（或直接打开 `/v0/resource/plugins/loomy/accounts`）。首次打开输入 management key，只存本浏览器。
+
+- **概览**：账号 / 积分 / 今日请求与成功率 / 平均耗时 / tokens，近 7 天请求，需要处理的账号，自动续期开关，客户端接入示例
+- **账号**：排序、搜索、状态筛选；续期、短信重登、解除冷却、启用/停用、备注、删除（停用/备注/删除走 CPA 原生 `auth-files` 接口）；添加账号（密码或短信）；导出 CSV
+- **请求日志**：时间范围 / 账号 / 模型 / 结果 / 关键词筛选，分页，导出 CSV（落盘，重启不丢）
+- **模型**：网关清单、倍率、免费标记、一键复制调用名
+- **运行日志**：自动续期、探活、加号、插件异常
+
+资源路由只返回页面壳，不含任何数据。
 
 ## 编译
 
 ```bash
 cd plugin
-CGO_ENABLED=1 go build -buildmode=c-shared -o loomy.so .
+CGO_ENABLED=1 go build -buildmode=c-shared -trimpath -ldflags="-s -w" -o ../loomy-linux-arm64.so .
+go test ./...
 ```
 
-需要 Go 1.26+ 与 gcc。产物必须与 CPA 的 GOOS/GOARCH 一致。
+需要 Go 1.26+ 与 gcc，产物 GOOS/GOARCH 必须与 CPA 一致。
 
-## 安装
+## 安装 / 升级
+
+```bash
+scp loomy-linux-arm64.so deploy-prod.sh verify-prod.sh ubuntu@<vps>:~/loomy-plugin/
+ssh ubuntu@<vps> 'cd ~/loomy-plugin && bash deploy-prod.sh ./loomy-linux-arm64.so && bash verify-prod.sh'
+```
+
+`deploy-prod.sh` 会把旧 `loomy*.so` 和 config 备份到 `~/cliproxy/plugin-backups/<时间>/`，安装为 `loomy-v2.0.0.so`，注册失败或版本不对自动回滚。
 
 ```yaml
-config-version: 8
 plugins:
     enabled: true
     dir: "/path/to/plugins"
     configs:
         loomy:
             enabled: true
-            base-url: "https://loomyad.xunfei.cn/api/v1"   # 可选
-            proxy-url: ""                                   # 可选
-oauth:
-    auth-dir: "/path/to/auths"
+            # 以下均可选
+            base-url: "https://loomyad.xunfei.cn/api/v1"
+            proxy-url: ""              # http(s):// 或 socks5://
+            data-dir: ""               # 请求日志/运行日志/设置，默认 ~/.loomy-plugin（0700）
+            stream-mode: "live"        # live=真流式；buffered=v1 行为（整段读完再发）
+            log-retention-days: 30
 ```
 
-重启后日志应出现 `plugin registered plugin_id=loomy plugin_name=loomy-accounts version=0.2.0`。
+## 加号
 
-## 加账号
-
-**方式一：管理 API（推荐）**
+控制台“添加账号”即可。也可直接调管理 API：
 
 ```bash
-# 1) 发验证码
-curl -X POST http://127.0.0.1:8317/v0/management/loomy/send-code \
-  -H "Authorization: Bearer <management-key>" -H "Content-Type: application/json" \
-  -d '{"phone":"13800000000"}'
-# → {"msgid":"..."}
-
-# 2) 提交验证码，插件直接写 auth 文件
-curl -X POST http://127.0.0.1:8317/v0/management/loomy/login \
-  -H "Authorization: Bearer <management-key>" -H "Content-Type: application/json" \
-  -d '{"phone":"13800000000","code":"123456","msgid":"..."}'
-# → {"saved":"loomy-0000.json", ...}
-
-# 3) 用密码加号（之后可无人值守续期）
-curl -X POST http://127.0.0.1:8317/v0/management/loomy/add \
-  -H "Authorization: Bearer <management-key>" -H "Content-Type: application/json" \
-  -d '{"phone":"13800000000","password":"..."}'
-
-# 4) 看账号与积分
-curl -H "Authorization: Bearer <management-key>" http://127.0.0.1:8317/v0/management/loomy/accounts
-curl -H "Authorization: Bearer <management-key>" "http://127.0.0.1:8317/v0/management/loomy/points?auth_index=<index>"
+H='-H "Authorization: Bearer <management-key>" -H "Content-Type: application/json"'
+POST /v0/management/loomy/add        {"phone":"138...","password":"..."}   # 可无人值守续期
+POST /v0/management/loomy/send-code  {"phone":"138..."}                     # → {"msgid"}
+POST /v0/management/loomy/login      {"phone":"138...","code":"123456","msgid":"..."}
+POST /v0/management/loomy/renew      {"auth_index":"..."}                   # 立即用密码重登
+GET  /v0/management/loomy/overview | /requests | /models | /events
 ```
 
-**方式二：手工放文件**
+同一手机号再次登录会原地更新原文件，备注/优先级/停用状态保留；短信重登不会抹掉已存的密码。
 
-```json
-{"type":"loomy","session":"<32位 session>","phone":"13800000000","password":"可选"}
-```
-
-有 `password` 的账号在 `auth.refresh` 时会自动重新登录（`getPuKey` → RSA/PKCS#1 v1.5 → `byPwd`），14 天到期不再需要人工。
-
-**怎么给短信注册的号设密码**：`https://passport.xfyun.cn/forget`（讯飞开放平台的"忘记密码"页，短信验证后直接设新密码，规则为数字+字母 6~20 位）。设完把密码写进 auth 文件：
-
-```json
-{"type":"loomy","phone":"13800000000","password":"...","session":"..."}
-```
-
-实测（2026-11-07）：`auth.refresh` 返回 `renewed by password`，session 被换新，`NextRefreshAfter` 推到 +10 天。
-
-## 两个踩过的坑
-
-1. **网关失效回 200 不是 401**。登录过期时返回 `{"code":"100002","desc":"登录已失效"}` 且 HTTP 200，只看状态码会把错误当成功。插件会探测 `code` 字段转成 401。
-2. **请求体里的裸中文会被拒**。同一句话，raw UTF-8 发送返回 `400 请求参数错误`，转成 `\uXXXX` 转义后正常。插件在转发前统一做非 ASCII 转义。
-
-## 模型
-
-所有模型统一带 `lm/` 前缀，避免与其他 provider 同名冲突（尤其是 `qwen3.8-flash` 这类被别处占用的 id）。插件转发前会剥掉前缀。
-
-| 模型 | 上下文 | 能力 | 倍率 |
-|---|---|---|---|
-| `lm/spark-x2.6` | 1M | 工具调用 | x0.0（限时免费） |
-| `lm/GLM-5.3-Flash` | 1M | 工具 + 看图 | x0.8 |
-| `lm/DeepSeek-V4.1-Flash` | 1M | 工具 + 看图 | x2.0 |
-| `lm/deepseek-v4-flash-0731` | 1M | 工具 | 未标注 |
-| `lm/mimo-v2.5` | 1M | 工具 + 看图 | 未标注（上游偶发 429） |
-| `lm/qwen3.8-flash` | 1M | 工具 + 看图 | 未标注 |
-
-网关另有 3 个生图模型（`Hy-Image-3.5-preview`、`doubao-seedream-5-lite`、`qwen-image-3.0-pro`），走 `/v1/images/generations`，当前执行器未接。
-
-## 账号池面板
-
-CPA 面板菜单里的 **Loomy 账号池**，或直接访问：
-
-```
-http://127.0.0.1:8317/v0/resource/plugins/loomy/accounts
-```
-
-| 区块 | 内容 |
-|---|---|
-| 汇总卡 | 账号数、可用积分合计、今日额度合计、异常账号数 |
-| 账号表 | 手机号、账号状态、永久积分、今日剩余、可用合计、**会话剩余**（登录态天数，≤7 天标黄）、调用成功/失败、凭证文件；表下附逐行列说明 |
-| 最近请求 | 插件进程内环形缓冲，最近 30 条：时间、账号、模型、状态码、耗时、积分（重启清零） |
-| 模型清单 | 网关 `/models` 实时拉取：ID、名称、上下文、tools/vision、消费倍率、免费标记 |
-| 刷新 | 手动刷新 + 60 秒自动轮询；查余额最多 5 并发 |
-
-**有效期**取 auth 文件 mtime + 14 天（无显式 `expires_at` 时的估算，登录后写文件即校准）。
-
-**访问保护**：CPA 的资源路由本身不鉴权。需要门槛就在 `plugins.configs.loomy` 里加：
-
-```yaml
-plugins:
-    configs:
-        loomy:
-            enabled: true
-            panel-token: "随机长串"
-```
-
-之后必须带 `?t=随机长串` 才能打开，否则 403。默认不设 token（保持从菜单直接点开）。
-
-## 验证记录（CPA 8.0.53 / linux-arm64 / 2026-11-06）
-
-### 生产实例（:8317，systemd `cliproxy`）
-
-| 项 | 结果 |
-|---|---|
-| 插件安装位置 | `/home/ubuntu/cliproxy/plugins/linux/arm64/loomy-v0.2.0.so` |
-| 配置 | `plugins.configs.loomy.enabled: true`（备份 `config.yaml.bak-20261106164024`） |
-| 账号 | `/home/ubuntu/.cli-proxy-api/loomy-8109.json`（权限 600） |
-| 模型总数 | 63，其中 7 个 `owned_by=loomy` |
-| 非流式对话 | `http=200`，`content":"插件已修复"` |
-| 流式对话 | `data: {"object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant"}}]}` |
-| 服务状态 | `active`，`/healthz=200`，无 panic/fatal |
-
-### 测试实例（:8399，已停止）
-
-| 项 | 结果 |
-|---|---|
-| 插件注册 | `version=0.2.0` |
-| 中文对话 | `http=200`，`content":"已准备就绪"` |
-| 账号列表 | `host.auth.list` 返回 `loomy-8109.json` |
-| 积分接口 | `{"availableBalance":35000,"balance":30000,"dailyBalance":5000}` |
-| quota.fetch | `remainingFraction:1`，summary 三项 |
-| 无效 session | 上游 `100002` → 401 `invalid_api_key` |
+手工放文件也可以：`{"type":"loomy","session":"<session>","phone":"138...","password":"可选"}`，权限 600。
 
 ## 已知限制
 
-1. **stream 是缓冲的**。CPA 插件 RPC 是请求-响应模型，SSE 整段读完再切块回放，牺牲首字延迟。
-2. **密码登录未实测**。代码路径按 `getPuKey` + `byPwd` 实现，需要在讯飞账号中心设过密码的账号验证。
-3. **session 泄露等于账号**。auth 文件含明文 session，权限务必 0600。
+- 上游签名密钥来自逆向，厂商轮换后登录会失败；仓库保持私有。
+- 自动续期需要明文密码存放在凭证文件里。
+- 每日额度重置时点未确认；老凭证无 `expires_at` 时会话剩余为估算值。
+- 图片生成暂不支持。

@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Loomy 账号池</title>
+<style>
+:root{--bg:#0f1115;--card:#161a22;--card2:#1b2029;--line:#262c38;--fg:#e6e9ef;--dim:#8b93a7;--ok:#3fb950;--warn:#d29922;--bad:#f85149;--accent:#4c8dff;--accent-soft:#4c8dff22;--r:10px}
+@media (prefers-color-scheme:light){:root{--bg:#f5f6f8;--card:#fff;--card2:#f8f9fb;--line:#e3e6ec;--fg:#1d2330;--dim:#6b7385;--accent-soft:#4c8dff18}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 -apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:18px 18px 60px}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+header h1{font-size:18px;margin:0}
+header .ver{color:var(--dim);font-size:12px}
+header .sp{flex:1}
+nav.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+nav.tabs button{background:none;border:0;border-bottom:2px solid transparent;color:var(--dim);padding:9px 14px;font-size:14px;cursor:pointer;white-space:nowrap}
+nav.tabs button.on{color:var(--fg);border-bottom-color:var(--accent)}
+nav.tabs .badge{display:inline-block;min-width:16px;padding:0 5px;margin-left:4px;border-radius:8px;background:var(--bad);color:#fff;font-size:11px;line-height:16px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.card .k{color:var(--dim);font-size:12px}.card .v{font-size:22px;font-variant-numeric:tabular-nums;margin-top:2px}.card .s{color:var(--dim);font-size:12px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-top:14px}
+.panel h3{margin:0 0 10px;font-size:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+button,.btn{background:var(--accent);color:#fff;border:0;border-radius:7px;padding:7px 13px;font-size:13px;cursor:pointer;line-height:1.3}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--fg)}
+button.danger{background:transparent;border:1px solid #f8514966;color:var(--bad)}
+button.sm{padding:4px 9px;font-size:12px}
+button:disabled{opacity:.5;cursor:not-allowed}
+input,select,textarea{background:var(--card2);color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:7px 9px;font-size:13px;font-family:inherit}
+input:focus,select:focus{outline:1px solid var(--accent)}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);font-size:13px;white-space:nowrap}
+th{color:var(--dim);font-weight:500;background:var(--card2);position:sticky;top:0}
+th.sort{cursor:pointer;user-select:none}th.sort:hover{color:var(--fg)}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--accent-soft)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.ok{background:var(--ok)}.warn{background:var(--warn)}.bad{background:var(--bad)}.off{background:var(--dim)}
+.dim{color:var(--dim)}.small{font-size:12px}.err{color:var(--bad)}.wtxt{color:var(--warn)}
+.pill{display:inline-block;padding:0 7px;border-radius:999px;font-size:11px;border:1px solid var(--line);color:var(--dim);margin-right:3px;line-height:18px}
+.pill.on{color:#3fb950;border-color:#3fb95055;background:#3fb95014}
+.pill.w{color:var(--warn);border-color:#d2992255}
+.meter{height:5px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:3px;min-width:70px}
+.meter i{display:block;height:100%;background:var(--accent)}
+.empty{padding:26px;text-align:center;color:var(--dim)}
+.actions{display:flex;gap:4px}
+.pager{display:flex;gap:6px;align-items:center;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}
+.chart{display:flex;align-items:flex-end;gap:8px;height:120px;padding-top:6px}
+.chart .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
+.chart .stack{width:100%;max-width:38px;display:flex;flex-direction:column-reverse;border-radius:4px 4px 0 0;overflow:hidden;background:var(--line);min-height:2px}
+.chart .stack i{display:block}.chart .lab{font-size:11px;color:var(--dim)}
+pre.code{background:var(--card2);border:1px solid var(--line);border-radius:7px;padding:10px;font-size:12px;overflow:auto;margin:0;white-space:pre-wrap;word-break:break-all}
+.skel{display:inline-block;height:12px;width:60px;border-radius:4px;background:linear-gradient(90deg,var(--line),var(--card2),var(--line));background-size:200% 100%;animation:sk 1.2s infinite}
+@keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.modal-bg{position:fixed;inset:0;background:#0009;display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;width:100%;max-width:440px;max-height:90vh;overflow:auto}
+.modal h3{margin:0 0 12px;font-size:16px}
+.modal .row{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.modal .row input{width:100%}
+.modal .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;margin-bottom:12px}
+.seg button{flex:1;border-radius:0;background:transparent;color:var(--dim)}
+.seg button.on{background:var(--accent-soft);color:var(--fg)}
+#toasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:60}
+.toast{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:9px 13px;font-size:13px;max-width:360px;box-shadow:0 4px 16px #0005}
+.toast.bad{border-left-color:var(--bad)}.toast.ok{border-left-color:var(--ok)}
+.gate{max-width:420px;margin:12vh auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px}
+.gate h2{margin:0 0 6px;font-size:18px}
+.gate input{width:100%;margin:12px 0 8px}
+.hide{display:none!important}
+.attn li{margin:4px 0}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+@media(max-width:640px){.wrap{padding:12px}th,td{padding:7px 8px}.card .v{font-size:18px}}
+</style></head>
+<body>
+<div id="gate" class="gate hide">
+  <h2>Loomy 账号池</h2>
+  <div class="dim small">请输入 CPA 管理密钥（management key）。密钥只保存在本浏览器，用于调用 /v0/management 接口。</div>
+  <input id="gate-key" type="password" placeholder="management key" autocomplete="current-password">
+  <label class="small dim"><input id="gate-remember" type="checkbox" checked> 在此浏览器记住</label>
+  <div class="small wtxt" style="margin-top:8px">注意：CPA 对管理密钥连续输错会临时封禁来源 IP，请勿反复试错。</div>
+  <div id="gate-err" class="small err" style="margin-top:6px"></div>
+  <div style="margin-top:14px;text-align:right"><button id="gate-go">进入</button></div>
+</div>
+
+<div id="app" class="wrap hide">
+<header>
+  <h1>Loomy 账号池</h1><span class="ver" id="ver"></span>
+  <span class="sp"></span>
+  <span class="small dim" id="updated"></span>
+  <select id="auto" title="自动刷新">
+    <option value="0">不自动刷新</option><option value="30">每 30 秒</option><option value="60" selected>每 60 秒</option><option value="300">每 5 分钟</option>
+  </select>
+  <button id="reload" class="ghost">刷新</button>
+  <button id="logout" class="ghost" title="清除本浏览器保存的管理密钥">退出</button>
+</header>
+<nav class="tabs" id="tabs">
+  <button data-tab="overview" class="on">概览</button>
+  <button data-tab="accounts">账号<span id="badge-acc" class="badge hide"></span></button>
+  <button data-tab="requests">请求日志</button>
+  <button data-tab="models">模型</button>
+  <button data-tab="events">运行日志</button>
+</nav>
+
+<section id="tab-overview">
+  <div class="cards" id="kpis"></div>
+  <div class="grid2">
+    <div class="panel"><h3>近 7 天请求</h3><div class="chart" id="chart"></div><div class="small dim" style="margin-top:6px"><span class="dot ok"></span>成功 <span class="dot bad" style="margin-left:10px"></span>失败</div></div>
+    <div class="panel"><h3>需要处理</h3><ul class="attn small" id="attn" style="margin:0;padding-left:18px"></ul></div>
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <h3>自动续期</h3>
+      <div class="small dim" style="margin-bottom:10px">存了密码的账号会在会话到期前约 4 天自动重登；失败按 30 分钟 → 2 小时 → 6 小时 → 12 小时退避，避免触发风控。</div>
+      <div class="bar"><span id="renew-state"></span><span class="sp" style="flex:1"></span><button id="renew-toggle" class="ghost sm"></button></div>
+    </div>
+    <div class="panel">
+      <h3>客户端接入</h3>
+      <pre class="code" id="snippet"></pre>
+      <div class="bar" style="margin:8px 0 0"><button class="ghost sm" id="copy-snippet">复制</button><span class="small dim">API key 用 CPA 的 access key（不是管理密钥）。</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="tab-accounts" class="hide">
+  <div class="bar">
+    <button id="add-acc">+ 添加账号</button>
+    <input id="acc-search" placeholder="搜索手机号 / 备注 / 文件" style="width:200px">
+    <select id="acc-state"><option value="">全部状态</option><option value="ok">正常</option><option value="cooldown">冷却中</option><option value="invalid">会话失效</option><option value="disabled">已停用</option><option value="error">错误</option></select>
+    <span class="sp" style="flex:1"></span>
+    <button class="ghost" id="acc-refresh-points" title="跳过 60 秒缓存，重新查询所有账号积分">刷新积分</button>
+    <button class="ghost" id="acc-csv">导出 CSV</button>
+  </div>
+  <div class="tw"><table>
+    <thead><tr>
+      <th class="sort" data-k="phone">账号</th><th class="sort" data-k="state">状态</th>
+      <th class="sort num" data-k="permanent" title="永久积分：不清零，用完即止">永久</th>
+      <th class="sort num" data-k="daily" title="每天发放 5000，先扣这里，用不完不结转">今日剩余</th>
+      <th class="sort num" data-k="available" title="永久 + 今日剩余">可用</th>
+      <th class="sort num" data-k="days_left" title="登录会话 14 天硬过期，与积分无关">会话剩余</th>
+      <th title="自动 = 存了密码，到期前自动续；手动 = 到期需短信重登">续期</th>
+      <th class="sort num" data-k="today_req" title="今天经本插件的请求数 / 失败数">今日请求</th>
+      <th class="sort num" data-k="last_used">最近使用</th>
+      <th>操作</th>
+    </tr></thead>
+    <tbody id="acc-rows"></tbody>
+  </table></div>
+  <div class="small dim" style="margin-top:8px">停用 / 删除 / 备注直接调用 CPA 原生接口，与 CPA 管理中心的“认证文件”页一致。积分值缓存 60 秒。</div>
+</section>
+
+<section id="tab-requests" class="hide">
+  <div class="bar">
+    <select id="rq-range"><option value="today">今天</option><option value="1">近 24 小时</option><option value="7" selected>近 7 天</option><option value="30">近 30 天</option><option value="all">全部</option></select>
+    <select id="rq-account"><option value="">全部账号</option></select>
+    <select id="rq-model"><option value="">全部模型</option></select>
+    <select id="rq-status"><option value="">全部结果</option><option value="ok">成功</option><option value="fail">失败</option></select>
+    <input id="rq-q" placeholder="搜索错误信息" style="width:160px">
+    <span class="sp" style="flex:1"></span>
+    <button class="ghost" id="rq-csv">导出 CSV</button>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>时间</th><th>账号</th><th>模型</th><th>结果</th><th class="num">耗时</th><th class="num">首字</th><th class="num">输入/输出 tokens</th><th>错误</th></tr></thead>
+    <tbody id="rq-rows"></tbody>
+  </table></div>
+  <div class="pager">
+    <span class="small dim" id="rq-total"></span>
+    <select id="rq-size"><option>10</option><option selected>20</option><option>50</option><option>100</option></select>
+    <button class="ghost sm" id="rq-prev">上一页</button><span class="small" id="rq-page"></span><button class="ghost sm" id="rq-next">下一页</button>
+  </div>
+</section>
+
+<section id="tab-models" class="hide">
+  <div class="bar">
+    <input id="md-search" placeholder="搜索模型" style="width:200px">
+    <label class="small"><input type="checkbox" id="md-free"> 只看免费</label>
+    <span class="sp" style="flex:1"></span>
+    <button class="ghost" id="md-refresh">重新拉取</button>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>调用名（含前缀）</th><th>显示名</th><th class="num">上下文</th><th>能力</th><th class="num">倍率</th><th></th></tr></thead>
+    <tbody id="md-rows"></tbody>
+  </table></div>
+</section>
+
+<section id="tab-events" class="hide">
+  <div class="bar">
+    <select id="ev-level"><option value="">全部级别</option><option value="error">错误</option><option value="warn">警告</option><option value="info">信息</option></select>
+    <span class="small dim">自动续期、探活、加号、插件异常都会记在这里（持久化，最近 500 条）。</span>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>时间</th><th>级别</th><th>类型</th><th>内容</th></tr></thead>
+    <tbody id="ev-rows"></tbody>
+  </table></div>
+</section>
+</div>
+
+<div id="modal-root"></div>
+<div id="toasts"></div>
+
+<script>
+(function(){
+'use strict';
+const KEY_LS='loomy.mk';
+const root=(()=>{const p=location.pathname;const i=p.indexOf('/v0/resource/');return i>=0?p.slice(0,i):''})();
+const MG=root+'/v0/management';
+let mkey=localStorage.getItem(KEY_LS)||sessionStorage.getItem(KEY_LS)||'';
+let state={tab:'overview',ov:null,sort:{k:'phone',dir:1},rq:{page:1},models:null,timer:null,busy:false};
+const $=s=>document.querySelector(s);
+const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>Math.round(n||0).toLocaleString('en-US');
+const pad=n=>String(n).padStart(2,'0');
+const tstr=ms=>{if(!ms)return '—';const d=new Date(ms);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())};
+const ago=ms=>{if(!ms)return '—';const s=(Date.now()-ms)/1000;if(s<60)return '刚刚';if(s<3600)return Math.floor(s/60)+' 分钟前';if(s<86400)return Math.floor(s/3600)+' 小时前';return Math.floor(s/86400)+' 天前'};
+const kctx=n=>!n?'—':n>=1048576?(n/1048576).toFixed(n%1048576?1:0)+'M':n>=1000?Math.round(n/1000)+'K':n;
+
+function toast(msg,kind){const el=document.createElement('div');el.className='toast '+(kind||'');el.textContent=msg;$('#toasts').appendChild(el);setTimeout(()=>el.remove(),kind==='bad'?6000:3000)}
+
+async function api(method,path,body,opts){
+  opts=opts||{};
+  const res=await fetch((opts.native?MG:MG+'/loomy')+path,{method,headers:{'Authorization':'Bearer '+mkey,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,cache:'no-store'});
+  if(res.status===401||res.status===403&&!opts.native){lock('管理密钥无效或已过期，请重新输入');throw new Error('unauthorized')}
+  if(opts.raw)return res;
+  let data=null;const text=await res.text();try{data=text?JSON.parse(text):{}}catch(e){data={error:text.slice(0,200)}}
+  if(!res.ok||data&&data.error){throw new Error((data&&data.error)||('HTTP '+res.status))}
+  return data;
+}
+
+// ---- gate ----
+function lock(msg){mkey='';localStorage.removeItem(KEY_LS);sessionStorage.removeItem(KEY_LS);$('#app').classList.add('hide');$('#gate').classList.remove('hide');$('#gate-err').textContent=msg||'';stopTimer();$('#gate-key').focus()}
+async function unlock(){
+  const k=$('#gate-key').value.trim();if(!k)return;
+  $('#gate-go').disabled=true;$('#gate-err').textContent='';
+  mkey=k;
+  try{
+    const res=await fetch(MG+'/loomy/overview',{headers:{'Authorization':'Bearer '+k},cache:'no-store'});
+    if(res.status===401||res.status===403){mkey='';$('#gate-err').textContent='密钥不正确（多次输错会被 CPA 临时封禁 IP）';return}
+    if(res.status===404){mkey='';$('#gate-err').textContent='没找到插件的管理接口：请确认 Loomy 插件已启用';return}
+    (($('#gate-remember').checked)?localStorage:sessionStorage).setItem(KEY_LS,k);
+    $('#gate-key').value='';start();
+  }catch(e){mkey='';$('#gate-err').textContent='连接失败：'+e.message}
+  finally{$('#gate-go').disabled=false}
+}
+$('#gate-go').onclick=unlock;$('#gate-key').onkeydown=e=>{if(e.key==='Enter')unlock()};
+$('#logout').onclick=()=>{if(confirm('清除本浏览器保存的管理密钥？'))lock('')};
+
+// ---- tabs ----
+$('#tabs').onclick=e=>{const b=e.target.closest('button[data-tab]');if(!b)return;showTab(b.dataset.tab)};
+function showTab(t){state.tab=t;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));document.querySelectorAll('section[id^=tab-]').forEach(s=>s.classList.toggle('hide',s.id!=='tab-'+t));history.replaceState(null,'','#'+t);refreshTab()}
+function refreshTab(){if(state.tab==='requests')loadRequests();else if(state.tab==='models')loadModels(false);else if(state.tab==='events')loadEvents();else loadOverview(false)}
+
+// ---- overview + accounts ----
+async function loadOverview(force){
+  if(state.busy)return;state.busy=true;$('#reload').disabled=true;
+  if(!state.ov){$('#kpis').innerHTML=Array(6).fill('<div class="card"><div class="k"><span class="skel"></span></div><div class="v"><span class="skel" style="width:90px;height:20px"></span></div></div>').join('');$('#acc-rows').innerHTML='<tr><td colspan="10" class="empty">加载中…</td></tr>'}
+  try{state.ov=await api('GET','/overview'+(force?'?refresh=1':''));renderOverview();renderAccounts();$('#updated').textContent='更新于 '+tstr(state.ov.updated_at).slice(11)}
+  catch(e){if(e.message!=='unauthorized'){toast('加载失败：'+e.message,'bad');if(!state.ov)$('#acc-rows').innerHTML='<tr><td colspan="10" class="empty err">加载失败：'+esc(e.message)+' <button class="ghost sm" onclick="location.reload()">重试</button></td></tr>'}}
+  finally{state.busy=false;$('#reload').disabled=false}
+}
+function renderOverview(){
+  const o=state.ov,s=o.summary;$('#ver').textContent='v'+o.version;
+  const rate=s.requests?Math.round(s.requests_ok*100/s.requests)+'%':'—';
+  const kp=[['账号',s.active+' / '+s.accounts,s.unhealthy?('<span class="err">'+s.unhealthy+' 个异常</span>'):'全部正常'],
+    ['可用积分合计',fmt(s.available),'正常+冷却中的账号'],['今日剩余合计',fmt(s.today),'今日已用约 '+fmt(s.today_used)],
+    ['今日请求',fmt(s.requests),'成功率 '+rate],['平均耗时',s.avg_ms?fmt(s.avg_ms)+' ms':'—','今日成功请求'],['今日 tokens',fmt(s.tokens),'输入+输出']];
+  $('#kpis').innerHTML=kp.map(k=>'<div class="card"><div class="k">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="s">'+k[2]+'</div></div>').join('');
+  const max=Math.max(1,...o.days.map(d=>d.ok+d.fail));
+  $('#chart').innerHTML=o.days.map(d=>{const h=(d.ok+d.fail)/max*100;return '<div class="col" title="'+esc(d.day)+'：成功 '+d.ok+'，失败 '+d.fail+'"><span class="small dim">'+(d.ok+d.fail||'')+'</span><div class="stack" style="height:'+Math.max(h,1.5)+'%"><i style="flex:'+d.ok+';background:var(--ok)"></i><i style="flex:'+d.fail+';background:var(--bad)"></i></div><span class="lab">'+esc(d.day)+'</span></div>'}).join('');
+  const attn=[];o.accounts.forEach(a=>{
+    if(a.state==='invalid')attn.push('<span class="dot bad"></span>'+esc(a.phone)+' 会话失效'+(a.auto_renew?'，可点“续期”':'，需短信重新登录'));
+    else if(a.state==='error')attn.push('<span class="dot bad"></span>'+esc(a.phone)+' 查询出错：'+esc((a.state_detail||'').slice(0,60)));
+    else if(a.state==='cooldown')attn.push('<span class="dot warn"></span>'+esc(a.phone)+' 冷却中，'+esc(tstr(a.cooldown_to).slice(5,16))+' 恢复');
+    if(a.state!=='disabled'&&!a.auto_renew&&a.days_left>=0&&a.days_left<3)attn.push('<span class="dot warn"></span>'+esc(a.phone)+' 会话约 '+a.days_left.toFixed(1)+' 天后到期（手动账号）');
+    if(a.state==='ok'&&a.available<1000)attn.push('<span class="dot warn"></span>'+esc(a.phone)+' 可用积分仅剩 '+fmt(a.available));
+  });
+  $('#attn').innerHTML=attn.length?attn.map(x=>'<li>'+x+'</li>').join(''):'<li class="dim" style="list-style:none;margin-left:-18px">一切正常</li>';
+  const b=$('#badge-acc');const bad=s.unhealthy+s.expiring_soon;b.textContent=bad;b.classList.toggle('hide',!bad);
+  const paused=o.settings&&o.settings.renew_paused;
+  $('#renew-state').innerHTML=paused?'<span class="dot warn"></span>已暂停（不会发起任何自动登录）':'<span class="dot ok"></span>运行中';
+  $('#renew-toggle').textContent=paused?'恢复自动续期':'暂停自动续期';
+  const base=location.origin+root+'/v1';const ex=(o.accounts.length?'lm/spark-x2.6':'lm/<模型>');
+  $('#snippet').textContent='base_url: '+base+'\napi_key:  <CPA access key>\nmodel:    '+ex+'\n\ncurl '+base+'/chat/completions \\\n  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \\\n  -d \'{"model":"'+ex+'","stream":true,"messages":[{"role":"user","content":"你好"}]}\'';
+}
+$('#renew-toggle').onclick=async()=>{const paused=!(state.ov.settings&&state.ov.settings.renew_paused);const btn=$('#renew-toggle');btn.disabled=true;try{await api('POST','/settings',{renew_paused:paused});toast(paused?'已暂停自动续期':'已恢复自动续期','ok');await loadOverview(false)}catch(e){toast(e.message,'bad')}finally{btn.disabled=false}};
+$('#copy-snippet').onclick=()=>copy($('#snippet').textContent);
+function copy(t){(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('已复制','ok'),()=>{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();toast('已复制','ok')})}
+
+const STATE_TXT={ok:['ok','正常'],cooldown:['warn','冷却中'],invalid:['bad','会话失效'],disabled:['off','已停用'],error:['bad','错误']};
+function filteredAccounts(){
+  const q=$('#acc-search').value.trim().toLowerCase(),st=$('#acc-state').value,{k,dir}=state.sort;
+  return (state.ov?state.ov.accounts:[]).filter(a=>(!st||a.state===st)&&(!q||(a.phone+' '+a.note+' '+a.file).toLowerCase().includes(q)))
+    .sort((a,b)=>{const x=a[k],y=b[k];return (typeof x==='number'?x-y:String(x).localeCompare(String(y)))*dir});
+}
+function renderAccounts(){
+  const rows=filteredAccounts();
+  document.querySelectorAll('#tab-accounts th.sort').forEach(th=>{th.textContent=th.textContent.replace(/ [▲▼]$/,'');if(th.dataset.k===state.sort.k)th.textContent+=state.sort.dir>0?' ▲':' ▼'});
+  if(!rows.length){$('#acc-rows').innerHTML='<tr><td colspan="10" class="empty">'+(state.ov&&state.ov.accounts.length?'没有符合条件的账号':'还没有账号，点“添加账号”开始')+'</td></tr>';return}
+  $('#acc-rows').innerHTML=rows.map(a=>{
+    const st=STATE_TXT[a.state]||STATE_TXT.error;
+    const days=a.days_left<0?'<span class="dim">未知</span>':'<span class="'+(a.days_left<3?'err':a.days_left<7?'wtxt':'')+'">'+a.days_left.toFixed(1)+' 天</span>'+(a.days_exact?'':'<span class="dim small" title="凭证里没有 expires_at，按文件修改时间估算"> 估</span>');
+    const dis=a.state==='disabled';
+    return '<tr>'+
+      '<td><div>'+esc(a.phone)+'</div><div class="small dim">'+(a.note?esc(a.note)+' · ':'')+esc(a.file)+'</div></td>'+
+      '<td><span class="dot '+st[0]+'"></span>'+st[1]+(a.state_detail?'<div class="small dim" title="'+esc(a.state_detail)+'">'+esc(a.state_detail.slice(0,32))+'</div>':'')+'</td>'+
+      '<td class="num">'+fmt(a.permanent)+'</td>'+
+      '<td class="num">'+fmt(a.daily)+'<div class="meter"><i style="width:'+Math.min(100,a.daily/50)+'%"></i></div></td>'+
+      '<td class="num">'+fmt(a.available)+'</td>'+
+      '<td class="num">'+days+'</td>'+
+      '<td>'+(a.auto_renew?'<span class="pill on">自动</span>':'<span class="pill">手动</span>')+'</td>'+
+      '<td class="num">'+fmt(a.today_req)+(a.today_fail?' / <span class="err">'+fmt(a.today_fail)+'</span>':'')+'</td>'+
+      '<td class="num small dim" title="'+esc(tstr(a.last_used))+'">'+ago(a.last_used)+'</td>'+
+      '<td><div class="actions">'+
+        (a.auto_renew?'<button class="ghost sm" data-act="renew" data-i="'+esc(a.auth_index)+'">续期</button>':'<button class="ghost sm" data-act="relogin" data-i="'+esc(a.auth_index)+'">重登</button>')+
+        (a.state==='cooldown'?'<button class="ghost sm" data-act="cool" data-i="'+esc(a.auth_index)+'">解除冷却</button>':'')+
+        '<button class="ghost sm" data-act="toggle" data-i="'+esc(a.auth_index)+'">'+(dis?'启用':'停用')+'</button>'+
+        '<button class="ghost sm" data-act="note" data-i="'+esc(a.auth_index)+'">备注</button>'+
+        '<button class="danger sm" data-act="del" data-i="'+esc(a.auth_index)+'">删除</button>'+
+      '</div></td></tr>'}).join('');
+}
+document.querySelectorAll('#tab-accounts th.sort').forEach(th=>th.onclick=()=>{const k=th.dataset.k;state.sort=state.sort.k===k?{k,dir:-state.sort.dir}:{k,dir:typeof (state.ov&&state.ov.accounts[0]||{})[k]==='number'?-1:1};renderAccounts()});
+$('#acc-search').oninput=renderAccounts;$('#acc-state').onchange=renderAccounts;
+$('#acc-refresh-points').onclick=()=>loadOverview(true);
+$('#acc-rows').onclick=async e=>{
+  const b=e.target.closest('button[data-act]');if(!b)return;
+  const a=state.ov.accounts.find(x=>x.auth_index===b.dataset.i);if(!a)return;
+  const act=b.dataset.act;
+  const run=async(fn,okMsg)=>{b.disabled=true;const t=b.textContent;b.textContent='…';try{await fn();toast(okMsg,'ok');await loadOverview(true)}catch(err){if(err.message!=='unauthorized')toast(err.message,'bad')}finally{b.disabled=false;b.textContent=t}};
+  if(act==='renew')run(()=>api('POST','/renew',{auth_index:a.auth_index}),a.phone+' 已续期');
+  else if(act==='cool')run(()=>api('POST','/reset-cooldown',{auth_index:a.auth_index}),'已解除冷却');
+  else if(act==='toggle'){const dis=a.state!=='disabled';if(dis&&!confirm('停用 '+a.phone+'？CPA 将不再把请求分给它。'))return;run(()=>api('PATCH','/auth-files/status',{name:a.file,disabled:dis},{native:true}),dis?'已停用':'已启用')}
+  else if(act==='note'){const n=prompt('备注（留空清除）',a.note||'');if(n===null)return;run(()=>api('PATCH','/auth-files/fields',{name:a.file,note:n.trim()},{native:true}),'备注已保存')}
+  else if(act==='del'){if(prompt('删除会移除凭证文件 '+a.file+'，不可恢复。\n请输入该账号手机号后 4 位确认：')!==a.phone.slice(-4))return toast('已取消');run(()=>api('DELETE','/auth-files?name='+encodeURIComponent(a.file),null,{native:true}),'已删除')}
+  else if(act==='relogin')openAdd('sms');
+};
+$('#acc-csv').onclick=()=>{const rows=filteredAccounts();const head=['账号','备注','文件','状态','永久','今日剩余','可用','会话剩余天','续期','今日请求','今日失败','最近使用'];const lines=[head].concat(rows.map(a=>[a.phone,a.note,a.file,(STATE_TXT[a.state]||[])[1],a.permanent,a.daily,a.available,a.days_left.toFixed(1),a.auto_renew?'自动':'手动',a.today_req,a.today_fail,tstr(a.last_used)]));download('loomy-accounts.csv','\ufeff'+lines.map(r=>r.map(c=>'"'+String(c==null?'':c).replace(/"/g,'""')+'"').join(',')).join('\n'),'text/csv')};
+function download(name,content,type){const a=document.createElement('a');a.href=URL.createObjectURL(content instanceof Blob?content:new Blob([content],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+
+// ---- add account modal ----
+$('#add-acc').onclick=()=>openAdd('pwd');
+function openAdd(mode){
+  const m=document.createElement('div');m.className='modal-bg';
+  m.innerHTML='<div class="modal"><h3>添加 / 重新登录账号</h3>'+
+   '<div class="seg"><button data-m="pwd">密码登录（可自动续期）</button><button data-m="sms">短信验证码</button></div>'+
+   '<div class="row"><label class="small dim">手机号</label><input id="m-phone" inputmode="numeric" maxlength="11" placeholder="11 位手机号"></div>'+
+   '<div class="row" data-for="pwd"><label class="small dim">密码</label><input id="m-pwd" type="password" autocomplete="new-password"><span class="small dim">密码会明文写入凭证文件（权限 600），用于到期自动重登。</span></div>'+
+   '<div class="row" data-for="sms"><label class="small dim">验证码</label><div style="display:flex;gap:6px"><input id="m-code" inputmode="numeric" maxlength="6" style="flex:1"><button class="ghost" id="m-send">发送验证码</button></div><span class="small dim">短信登录不保存密码，14 天后需再次登录；若该号已有密码则保留自动续期。</span></div>'+
+   '<div id="m-err" class="small err"></div>'+
+   '<div class="foot"><button class="ghost" id="m-cancel">取消</button><button id="m-ok">保存</button></div></div>';
+  document.getElementById('modal-root').appendChild(m);
+  let msgid='',cur=mode,cd=0,cdT=null;
+  const setMode=x=>{cur=x;m.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on',b.dataset.m===x));m.querySelectorAll('[data-for]').forEach(r=>r.classList.toggle('hide',r.dataset.for!==x))};
+  setMode(mode);
+  m.querySelector('.seg').onclick=e=>{const b=e.target.closest('button');if(b)setMode(b.dataset.m)};
+  const close=()=>{clearInterval(cdT);m.remove()};
+  m.querySelector('#m-cancel').onclick=close;m.onclick=e=>{if(e.target===m)close()};
+  const err=t=>m.querySelector('#m-err').textContent=t||'';
+  const phone=()=>m.querySelector('#m-phone').value.trim();
+  m.querySelector('#m-send').onclick=async ev=>{
+    const b=ev.target;if(!/^1\d{10}$/.test(phone()))return err('请输入 11 位手机号');err('');b.disabled=true;
+    try{const r=await api('POST','/send-code',{phone:phone()});msgid=r.msgid;toast('验证码已发送','ok');cd=60;cdT=setInterval(()=>{cd--;b.textContent=cd>0?cd+' 秒':'重新发送';if(cd<=0){clearInterval(cdT);b.disabled=false}},1000)}
+    catch(e2){err(e2.message);b.disabled=false}
+  };
+  m.querySelector('#m-ok').onclick=async ev=>{
+    const b=ev.target;if(!/^1\d{10}$/.test(phone()))return err('请输入 11 位手机号');
+    let path,body;
+    if(cur==='pwd'){const p=m.querySelector('#m-pwd').value;if(!p)return err('请输入密码');path='/add';body={phone:phone(),password:p}}
+    else{const c=m.querySelector('#m-code').value.trim();if(!msgid)return err('请先发送验证码');if(!c)return err('请输入验证码');path='/login';body={phone:phone(),code:c,msgid}}
+    err('');b.disabled=true;b.textContent='登录中…';
+    try{const r=await api('POST',path,body);toast('已保存 '+r.saved+(r.auto_renew?'（自动续期）':''),'ok');close();await loadOverview(true)}
+    catch(e2){err(e2.message)}finally{b.disabled=false;b.textContent='保存'}
+  };
+  m.querySelector('#m-phone').focus();
+}
+
+// ---- requests ----
+function rqQuery(extra){
+  const r=$('#rq-range').value,p=new URLSearchParams();const now=Date.now();
+  if(r==='today'){const d=new Date();d.setHours(0,0,0,0);p.set('since',d.getTime())}else if(r!=='all')p.set('since',now-(+r)*86400000);
+  ['account','model','status'].forEach(k=>{const v=$('#rq-'+k).value;if(v)p.set(k,v)});
+  const q=$('#rq-q').value.trim();if(q)p.set('q',q);
+  p.set('page',state.rq.page);p.set('size',$('#rq-size').value);
+  Object.entries(extra||{}).forEach(([k,v])=>p.set(k,v));return '?'+p.toString();
+}
+function fillSelect(sel,vals,label){const cur=sel.value;sel.innerHTML='<option value="">'+label+'</option>'+vals.map(v=>'<option'+(v===cur?' selected':'')+'>'+esc(v)+'</option>').join('')}
+async function loadRequests(){
+  $('#rq-rows').innerHTML='<tr><td colspan="8" class="empty">加载中…</td></tr>';
+  try{
+    const d=await api('GET','/requests'+rqQuery());
+    fillSelect($('#rq-account'),d.accounts,'全部账号');fillSelect($('#rq-model'),d.models,'全部模型');
+    const pages=Math.max(1,Math.ceil(d.total/d.size));
+    $('#rq-total').textContent='共 '+d.total+' 条';$('#rq-page').textContent=d.page+' / '+pages;
+    $('#rq-prev').disabled=d.page<=1;$('#rq-next').disabled=d.page>=pages;
+    $('#rq-rows').innerHTML=d.items.length?d.items.map(r=>'<tr>'+
+      '<td class="small dim">'+esc(tstr(r.ts))+'</td><td>'+esc(r.account)+'</td><td>'+esc(r.model)+(r.stream?' <span class="pill">流式</span>':'')+'</td>'+
+      '<td>'+(r.status===200?'<span class="dot ok"></span>200':'<span class="dot bad"></span>'+esc(r.status))+'</td>'+
+      '<td class="num">'+fmt(r.ms)+' ms</td><td class="num">'+(r.ttfb?fmt(r.ttfb)+' ms':'—')+'</td>'+
+      '<td class="num">'+(r.pt||r.ct?fmt(r.pt)+' / '+fmt(r.ct):'—')+'</td>'+
+      '<td class="small err" title="'+esc(r.error)+'" style="max-width:280px;overflow:hidden;text-overflow:ellipsis">'+esc(r.error)+'</td></tr>').join(''):'<tr><td colspan="8" class="empty">没有符合条件的请求</td></tr>';
+  }catch(e){if(e.message!=='unauthorized')$('#rq-rows').innerHTML='<tr><td colspan="8" class="empty err">加载失败：'+esc(e.message)+'</td></tr>'}
+}
+['range','account','model','status','size'].forEach(k=>$('#rq-'+k).onchange=()=>{state.rq.page=1;loadRequests()});
+let rqT=null;$('#rq-q').oninput=()=>{clearTimeout(rqT);rqT=setTimeout(()=>{state.rq.page=1;loadRequests()},350)};
+$('#rq-prev').onclick=()=>{state.rq.page--;loadRequests()};$('#rq-next').onclick=()=>{state.rq.page++;loadRequests()};
+$('#rq-csv').onclick=async()=>{try{const res=await api('GET','/requests'+rqQuery({format:'csv'}),null,{raw:true});if(!res.ok)throw new Error('HTTP '+res.status);download('loomy-requests.csv',await res.blob())}catch(e){if(e.message!=='unauthorized')toast('导出失败：'+e.message,'bad')}};
+
+// ---- models ----
+async function loadModels(force){
+  if(state.models&&!force){renderModels();return}
+  $('#md-rows').innerHTML='<tr><td colspan="6" class="empty">加载中…</td></tr>';
+  try{state.models=await api('GET','/models'+(force?'?refresh=1':''));renderModels()}
+  catch(e){if(e.message!=='unauthorized')$('#md-rows').innerHTML='<tr><td colspan="6" class="empty err">'+esc(e.message)+'</td></tr>'}
+}
+function renderModels(){
+  const q=$('#md-search').value.trim().toLowerCase(),free=$('#md-free').checked,pre=state.models.prefix||'lm/';
+  const rows=state.models.items.filter(m=>(!free||m.free)&&(!q||(m.id+' '+m.name).toLowerCase().includes(q)));
+  $('#md-rows').innerHTML=rows.length?rows.map(m=>'<tr><td class="mono">'+esc(pre+m.id)+'</td><td class="small dim">'+esc(m.name)+'</td><td class="num">'+kctx(m.context)+'</td>'+
+    '<td>'+(m.tools?'<span class="pill on">tools</span>':'')+(m.vision?'<span class="pill on">vision</span>':'')+'</td>'+
+    '<td class="num">'+(m.free?'<span class="pill on">免费</span>':m.multiple?'x'+esc(m.multiple):'—')+'</td>'+
+    '<td><button class="ghost sm" data-copy="'+esc(pre+m.id)+'">复制</button></td></tr>').join(''):'<tr><td colspan="6" class="empty">没有符合条件的模型</td></tr>';
+}
+$('#md-rows').onclick=e=>{const b=e.target.closest('[data-copy]');if(b)copy(b.dataset.copy)};
+$('#md-search').oninput=()=>state.models&&renderModels();$('#md-free').onchange=()=>state.models&&renderModels();
+$('#md-refresh').onclick=()=>loadModels(true);
+
+// ---- events ----
+async function loadEvents(){
+  try{const d=await api('GET','/events?level='+$('#ev-level').value);
+    const L={error:['bad','错误'],warn:['warn','警告'],info:['ok','信息']};
+    $('#ev-rows').innerHTML=d.items.length?d.items.map(e=>'<tr><td class="small dim">'+esc(tstr(e.ts))+'</td><td><span class="dot '+(L[e.level]||L.info)[0]+'"></span>'+(L[e.level]||L.info)[1]+'</td><td class="small">'+esc(e.kind)+'</td><td style="white-space:normal">'+esc(e.msg)+(e.detail?'<div class="small dim mono" style="max-height:80px;overflow:auto">'+esc(e.detail)+'</div>':'')+'</td></tr>').join(''):'<tr><td colspan="4" class="empty">暂无记录</td></tr>';
+  }catch(e){if(e.message!=='unauthorized')$('#ev-rows').innerHTML='<tr><td colspan="4" class="empty err">'+esc(e.message)+'</td></tr>'}
+}
+$('#ev-level').onchange=loadEvents;
+
+// ---- refresh loop ----
+function stopTimer(){if(state.timer){clearInterval(state.timer);state.timer=null}}
+function startTimer(){stopTimer();const s=+$('#auto').value;localStorage.setItem('loomy.auto',s);if(s>0)state.timer=setInterval(()=>{if(!document.hidden&&!document.querySelector('.modal-bg'))refreshTab()},s*1000)}
+$('#auto').onchange=startTimer;$('#reload').onclick=()=>state.tab==='models'?loadModels(true):state.tab==='overview'||state.tab==='accounts'?loadOverview(true):refreshTab();
+
+function start(){
+  $('#gate').classList.add('hide');$('#app').classList.remove('hide');
+  const a=localStorage.getItem('loomy.auto');if(a!==null)$('#auto').value=a;
+  const t=(location.hash||'').slice(1);
+  loadOverview(false).then(()=>{if(['accounts','requests','models','events'].includes(t))showTab(t)});startTimer();
+}
+if(mkey)start();else lock('');
+})();
+</script>
+</body></html>

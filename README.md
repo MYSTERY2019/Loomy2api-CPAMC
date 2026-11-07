@@ -24,6 +24,38 @@ The control panel supports English and Chinese. This project is a CLIProxyAPI pl
 
 Upstream rewards, model availability, prices and error responses can change. Local safeguards reduce risk, but they cannot guarantee a spending limit.
 
+## Image input (vision) — clients must declare it
+
+CLIProxyAPI's `/v1/models` returns only `{id, object, owned_by}`. It does **not** publish input modalities, so a client that trusts the model list will treat every `lm/*` model as text-only and refuse to attach images before the request is even sent.
+
+The plugin does track the capability. `GET /v0/management/loomy/models` (management key required) returns `vision` per model, and that is the source of truth:
+
+| `lm/` model | Image input |
+|---|---|
+| `lm/GLM-5.3-Flash`, `lm/DeepSeek-V4.1-Flash`, `lm/qwen3.8-flash`, `lm/mimo-v2.5` | yes |
+| `lm/spark-x2.6`, `lm/deepseek-v4-flash-0731` | no |
+
+Declare it on the client side. For DSH profiles (`cordis.patch.yml`):
+
+```yaml
+- id: lm/GLM-5.3-Flash
+  name: lm/GLM-5.3-Flash
+  contextWindow: 1048576
+  input:
+    - text
+    - image
+```
+
+`tools/sync-dsh-models.py` does this automatically from the plugin's own capability map (idempotent, backs up the file first):
+
+```bash
+export LOOMY_MGMT_KEY='<plaintext management key>'
+python3 tools/sync-dsh-models.py --profile ~/.dsh/profiles/desktop/cordis.patch.yml --dry-run
+python3 tools/sync-dsh-models.py --profile ~/.dsh/profiles/desktop/cordis.patch.yml
+```
+
+Restart the client afterwards. Without this step a vision model still answers "no image was provided" — the request goes through, the image is dropped on the client side, and nothing errors.
+
 ## How it works
 
 <img src="docs/assets/architecture-en.svg" width="1200" alt="Compatible clients connect to CLIProxyAPI and the Loomy provider plugin, which manages a Loomy account pool.">

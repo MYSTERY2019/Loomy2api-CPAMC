@@ -104,7 +104,7 @@ func handleExecute(body []byte, stream bool) []byte {
 		return env
 	}
 
-	payload := escapeNonASCII(stripModelPrefix(req.Payload))
+	payload := escapeNonASCII(applyDefaultEffort(stripModelPrefix(req.Payload)))
 	ctx, cancel := context.WithTimeout(context.Background(), maxStreamDuration)
 	upReq, err := http.NewRequestWithContext(ctx, http.MethodPost, gateway(chatPath), bytes.NewReader(payload))
 	if err != nil {
@@ -374,6 +374,37 @@ func businessError(code, desc string) []byte {
 	}
 	raw, _ := json.Marshal(envelope{OK: false, Error: e})
 	return raw
+}
+
+// applyDefaultEffort injects reasoning_effort when the client did not set one.
+// Configured with plugins.configs.loomy.default-reasoning-effort; empty means
+// the gateway decides. A client that already sent reasoning_effort or a
+// thinking block always wins.
+func applyDefaultEffort(raw []byte) []byte {
+	effort := strings.ToLower(strings.TrimSpace(currentConfig().DefaultEffort))
+	if effort == "" {
+		return raw
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return raw
+	}
+	if _, ok := fields["reasoning_effort"]; ok {
+		return raw
+	}
+	if _, ok := fields["thinking"]; ok {
+		return raw
+	}
+	encoded, err := json.Marshal(effort)
+	if err != nil {
+		return raw
+	}
+	fields["reasoning_effort"] = encoded
+	out, err := json.Marshal(fields)
+	if err != nil {
+		return raw
+	}
+	return out
 }
 
 // stripModelPrefix removes the "lm/" routing prefix from the payload model.

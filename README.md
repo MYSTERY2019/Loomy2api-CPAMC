@@ -66,6 +66,7 @@ plugins:
       data-dir: ""                      # defaults to ~/.loomy-plugin
       stream-mode: "live"               # live or buffered
       log-retention-days: 30
+      default-reasoning-effort: ""   # none|low|medium|high|xhigh; applied when the client sends no reasoning_effort
 ```
 
 Open **Plugins → Loomy account pool** in the CLIProxyAPI management center, or visit `/v0/resource/plugins/loomy/accounts` on your own instance. Use the management key configured for your instance, then add an account using password or SMS login. Do not use a bcrypt hash as the key.

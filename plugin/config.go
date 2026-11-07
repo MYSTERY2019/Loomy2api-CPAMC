@@ -20,6 +20,7 @@ type pluginConfig struct {
 	DataDir       string
 	StreamMode    string // live | buffered
 	RetentionDays int
+	DefaultEffort string // none|low|medium|high|xhigh; empty = leave client's choice
 }
 
 var (
@@ -64,6 +65,13 @@ func parseConfig(raw []byte) {
 		case "log-retention-days":
 			if n, err := strconv.Atoi(val); err == nil && n > 0 && n <= 365 {
 				next.RetentionDays = n
+			}
+		case "default-reasoning-effort", "default-effort":
+			switch strings.ToLower(val) {
+			case "none", "low", "medium", "high", "xhigh":
+				next.DefaultEffort = strings.ToLower(val)
+			case "", "off", "client":
+				next.DefaultEffort = ""
 			}
 		}
 	}

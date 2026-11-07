@@ -78,7 +78,7 @@ const (
 	schemaVersion = 6 // raw JSON management responses (no HTML escaping)
 	providerKey   = "loomy"
 	pluginName    = "loomy-accounts"
-	pluginVer     = "1.0.0"
+	pluginVer     = "1.0.1"
 	modelPrefix   = "lm/"
 )
 
@@ -270,6 +270,7 @@ func registration() map[string]any {
 				map[string]any{"Name": "data-dir", "Type": "string", "Description": "Where request logs / events are persisted (default ~/.loomy-plugin)"},
 				map[string]any{"Name": "stream-mode", "Type": "string", "Description": "live (default, true streaming) or buffered (legacy)"},
 				map[string]any{"Name": "log-retention-days", "Type": "string", "Description": "Days of request log to keep (default 30)"},
+				map[string]any{"Name": "default-reasoning-effort", "Type": "string", "Description": "none|low|medium|high|xhigh — applied when the client sends no reasoning_effort (empty = client decides)"},
 			},
 		},
 		"capabilities": map[string]any{

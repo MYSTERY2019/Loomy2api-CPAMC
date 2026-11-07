@@ -1,0 +1,400 @@
+[
+  [
+    {
+      "id": "spark-x2.6",
+      "name": "Spark-X2.6 正式版(限时免费)(x0.0)",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": false,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "DeepSeek-V4.1-Flash",
+      "name": "DeepSeek V4.1 Flash(x2.0)",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "GLM-5.3-Flash",
+      "name": "GLM 5.3 Flash(x0.8)",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "qwen3.8-flash",
+      "name": "qwen 3.8 flash（x0.8）",
+      "context_length": 1000000,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "Hy-Image-3.5-preview",
+      "name": "Hy image 3.5 preview",
+      "context_length": 100000,
+      "type": "image",
+      "capabilities": {
+        "vision": true,
+        "function_calling": false
+      }
+    },
+    {
+      "id": "doubao-seedream-5-lite",
+      "name": "Doubao seedream 5 lite",
+      "context_length": 128000,
+      "type": "image",
+      "capabilities": {
+        "vision": true,
+        "function_calling": false
+      }
+    },
+    {
+      "id": "qwen-image-3.0-pro",
+      "name": "qwen image 3.0 pro",
+      "context_length": null,
+      "type": "image",
+      "capabilities": {
+        "vision": true,
+        "function_calling": false
+      }
+    },
+    {
+      "id": "mimo-v2.5",
+      "name": "MiMo V2.5（x3.3）",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "auto",
+      "name": "自动 · 均衡",
+      "context_length": null,
+      "type": "chat",
+      "capabilities": {
+        "vision": false,
+        "function_calling": false
+      }
+    }
+  ],
+  [
+    {
+      "id": "spark-x2.6",
+      "name": "Spark-X2.6 正式版(限时免费)(x0.0)",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": false,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "DeepSeek-V4.1-Flash",
+      "name": "DeepSeek V4.1 Flash(x2.0)",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "deepseek-v4-flash-0731",
+      "name": "DeepSeek V4 Flash 0731（x3.0）",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": false,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "GLM-5.3-Flash",
+      "name": "GLM 5.3 Flash(x0.8)",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "qwen3.8-flash",
+      "name": "qwen 3.8 flash（x0.8）",
+      "context_length": 1000000,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "Hy-Image-3.5-preview",
+      "name": "Hy image 3.5 preview",
+      "context_length": 100000,
+      "type": "image",
+      "capabilities": {
+        "vision": true,
+        "function_calling": false
+      }
+    },
+    {
+      "id": "doubao-seedream-5-lite",
+      "name": "Doubao seedream 5 lite",
+      "context_length": 128000,
+      "type": "image",
+      "capabilities": {
+        "vision": true,
+        "function_calling": false
+      }
+    },
+    {
+      "id": "qwen-image-3.0-pro",
+      "name": "qwen image 3.0 pro",
+      "context_length": null,
+      "type": "image",
+      "capabilities": {
+        "vision": true,
+        "function_calling": false
+      }
+    },
+    {
+      "id": "mimo-v2.5",
+      "name": "MiMo V2.5（x3.3）",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "auto",
+      "name": "自动 · 均衡",
+      "context_length": null,
+      "type": "chat",
+      "capabilities": {
+        "vision": false,
+        "function_calling": false
+      }
+    }
+  ],
+  [
+    {
+      "id": "spark-x2.6",
+      "name": "Spark-X2.6 正式版(限时免费)(x0.0)",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": false,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "DeepSeek-V4.1-Flash",
+      "name": "DeepSeek V4.1 Flash(x2.0)",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "deepseek-v4-flash-0731",
+      "name": "DeepSeek V4 Flash 0731（x3.0）",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": false,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "GLM-5.3-Flash",
+      "name": "GLM 5.3 Flash(x0.8)",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "qwen3.8-flash",
+      "name": "qwen 3.8 flash（x0.8）",
+      "context_length": 1000000,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "Hy-Image-3.5-preview",
+      "name": "Hy image 3.5 preview",
+      "context_length": 100000,
+      "type": "image",
+      "capabilities": {
+        "vision": true,
+        "function_calling": false
+      }
+    },
+    {
+      "id": "doubao-seedream-5-lite",
+      "name": "Doubao seedream 5 lite",
+      "context_length": 128000,
+      "type": "image",
+      "capabilities": {
+        "vision": true,
+        "function_calling": false
+      }
+    },
+    {
+      "id": "qwen-image-3.0-pro",
+      "name": "qwen image 3.0 pro",
+      "context_length": null,
+      "type": "image",
+      "capabilities": {
+        "vision": true,
+        "function_calling": false
+      }
+    },
+    {
+      "id": "mimo-v2.5",
+      "name": "MiMo V2.5（x3.3）",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "auto",
+      "name": "自动 · 均衡",
+      "context_length": null,
+      "type": "chat",
+      "capabilities": {
+        "vision": false,
+        "function_calling": false
+      }
+    }
+  ],
+  [
+    {
+      "id": "spark-x2.6",
+      "name": "Spark-X2.6 正式版(限时免费)(x0.0)",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": false,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "DeepSeek-V4.1-Flash",
+      "name": "DeepSeek V4.1 Flash(x2.0)",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "deepseek-v4-flash-0731",
+      "name": "DeepSeek V4 Flash 0731（x3.0）",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": false,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "GLM-5.3-Flash",
+      "name": "GLM 5.3 Flash(x0.8)",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "qwen3.8-flash",
+      "name": "qwen 3.8 flash（x0.8）",
+      "context_length": 1000000,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "Hy-Image-3.5-preview",
+      "name": "Hy image 3.5 preview",
+      "context_length": 100000,
+      "type": "image",
+      "capabilities": {
+        "vision": true,
+        "function_calling": false
+      }
+    },
+    {
+      "id": "doubao-seedream-5-lite",
+      "name": "Doubao seedream 5 lite",
+      "context_length": 128000,
+      "type": "image",
+      "capabilities": {
+        "vision": true,
+        "function_calling": false
+      }
+    },
+    {
+      "id": "qwen-image-3.0-pro",
+      "name": "qwen image 3.0 pro",
+      "context_length": null,
+      "type": "image",
+      "capabilities": {
+        "vision": true,
+        "function_calling": false
+      }
+    },
+    {
+      "id": "mimo-v2.5",
+      "name": "MiMo V2.5（x3.3）",
+      "context_length": 1048576,
+      "type": "chat",
+      "capabilities": {
+        "vision": true,
+        "function_calling": true
+      }
+    },
+    {
+      "id": "auto",
+      "name": "自动 · 均衡",
+      "context_length": null,
+      "type": "chat",
+      "capabilities": {
+        "vision": false,
+        "function_calling": false
+      }
+    }
+  ]
+]

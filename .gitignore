@@ -1,0 +1,19 @@
+# 编译产物（如需随仓库分发请保留，否则注释掉）
+# *.so
+
+# 凭证与本地状态：绝对不要提交
+accounts.json
+ck.txt
+*.session
+*.bak
+config.local.yaml
+
+# 编辑器/系统
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# 本地构建产物（不入库）
+build/

@@ -131,6 +131,18 @@ Balances are cached, so point safeguards cannot guarantee a hard spending limit.
 
 Use the plugin only with accounts you are authorized to operate, follow the upstream service's terms, and do not resell access.
 
+## Disclaimer
+
+This project is for personal study, technical research and protocol-compatibility work only. It does **not** provide any capability to crack software, bypass payment, take over accounts you do not own, or evade platform risk controls.
+
+- You are responsible for complying with the [Loomy user agreement](https://loomy.xunfei.cn/docs/Safe/Loomy-user), its points and referral rules, and iFlytek's terms of service.
+- The project does **not** encourage or support credit farming, bulk account registration, farming referral rewards, evading risk controls, or renting or reselling access.
+- Any account ban, points reset, service interruption, data loss or other consequence of using this project is your own responsibility. The authors accept no liability.
+- This project is not affiliated with, authorised by, or endorsed by iFlytek. Loomy and iFlytek are trademarks of their respective owners and are referenced here only to describe compatibility.
+- Rights holders who believe this repository infringes their rights may open an issue; we will review and act promptly.
+
+**Use it only with accounts you legitimately own and are entitled to use.** If your jurisdiction or your agreement with the platform forbids this kind of use, stop now.
+
 ## Development checks
 
 From `plugin/`, run `go vet ./...` and `go test -race ./...`. The optional `tools/test-panel.cjs` browser test uses mock data only; it requires Node, Playwright and Chromium and does not contact Loomy.

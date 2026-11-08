@@ -135,7 +135,7 @@ Use the plugin only with accounts you are authorized to operate, follow the upst
 
 This project is for personal study, technical research and protocol-compatibility work only. It does **not** provide any capability to crack software, bypass payment, take over accounts you do not own, or evade platform risk controls.
 
-- You are responsible for complying with the [Loomy user agreement](https://loomy.xunfei.cn/docs/Safe/Loomy-user), its points and referral rules, and iFlytek's terms of service.
+- You are responsible for complying with the user agreement, points rules and referral rules published by Loomy and the iFlytek open platform (always the latest version on their official pages).
 - The project does **not** encourage or support credit farming, bulk account registration, farming referral rewards, evading risk controls, or renting or reselling access.
 - Any account ban, points reset, service interruption, data loss or other consequence of using this project is your own responsibility. The authors accept no liability.
 - This project is not affiliated with, authorised by, or endorsed by iFlytek. Loomy and iFlytek are trademarks of their respective owners and are referenced here only to describe compatibility.

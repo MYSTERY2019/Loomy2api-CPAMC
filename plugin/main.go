@@ -78,7 +78,12 @@ const (
 	schemaVersion = 6 // raw JSON management responses (no HTML escaping)
 	providerKey   = "loomy"
 	pluginName    = "loomy-accounts"
-	pluginVer     = "1.0.3"
+	pluginVer     = "1.0.4"
+	// repoHome and pluginLogo surface in the host's plugin list. CPA rejects a
+	// plugin whose metadata has an empty GitHubRepository ("returned invalid
+	// metadata or no capabilities"), so these must never be blanked.
+	repoHome      = "https://github.com/MYSTERY2019/Loomy2api-CPAMC"
+	pluginLogo    = "https://raw.githubusercontent.com/MYSTERY2019/Loomy2api-CPAMC/main/docs/assets/logo.png"
 	modelPrefix   = "lm/"
 )
 
@@ -262,15 +267,15 @@ func registration() map[string]any {
 			"Name":             pluginName,
 			"Version":          pluginVer,
 			"Author":           "Loomy2api contributors",
-			"GitHubRepository": "",
-			"Logo":             "",
+			"GitHubRepository": repoHome,
+			"Logo":             pluginLogo,
 			"ConfigFields": []any{
 				map[string]any{"Name": "base-url", "Type": "string", "Description": "Loomy gateway base URL"},
 				map[string]any{"Name": "proxy-url", "Type": "string", "Description": "Optional HTTP(S)/SOCKS5 proxy for upstream calls"},
 				map[string]any{"Name": "data-dir", "Type": "string", "Description": "Where request logs / events are persisted (default ~/.loomy-plugin)"},
 				map[string]any{"Name": "stream-mode", "Type": "string", "Description": "live (default, true streaming) or buffered (legacy)"},
 				map[string]any{"Name": "log-retention-days", "Type": "string", "Description": "Days of request log to keep (default 30)"},
-				map[string]any{"Name": "default-reasoning-effort", "Type": "string", "Description": "none|low|medium|high|xhigh — applied when the client sends no reasoning_effort (empty = client decides)"},
+				map[string]any{"Name": "default-reasoning-effort", "Type": "string", "Description": "none|low|medium|high|xhigh - applied when the client sends no reasoning_effort (empty = client decides)"},
 			},
 		},
 		"capabilities": map[string]any{

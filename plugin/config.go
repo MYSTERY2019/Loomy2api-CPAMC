@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -125,6 +127,26 @@ func parseConfig(raw []byte) {
 	}
 }
 
+// safeRedirect keeps credential-bearing requests on the host they were meant
+// for. Go copies non-standard headers (our "token" header carries the Loomy
+// session) to the redirect target; only Authorization, WWW-Authenticate,
+// Cookie and Cookie2 are stripped on a cross-domain hop. Refusing the hop
+// outright is the only reliable guard, because the session is not in
+// Authorization for this upstream.
+func safeRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 5 {
+		return errors.New("stopped after 5 redirects")
+	}
+	prev := via[len(via)-1].URL
+	if !strings.EqualFold(req.URL.Host, prev.Host) {
+		return fmt.Errorf("refusing cross-host redirect from %s to %s", prev.Host, req.URL.Host)
+	}
+	if prev.Scheme == "https" && req.URL.Scheme != "https" {
+		return fmt.Errorf("refusing https to %s redirect", req.URL.Scheme)
+	}
+	return nil
+}
+
 // httpClient returns a shared client per timeout so connections are reused
 // (the v1 code built a fresh Transport per call and leaked idle sockets).
 func httpClient(timeout time.Duration) *http.Client {
@@ -147,7 +169,7 @@ func httpClient(timeout time.Duration) *http.Client {
 			transport.Proxy = http.ProxyURL(parsed)
 		}
 	}
-	c := &http.Client{Timeout: timeout, Transport: transport}
+	c := &http.Client{Timeout: timeout, Transport: transport, CheckRedirect: safeRedirect}
 	clientCache[timeout] = c
 	return c
 }

@@ -78,7 +78,7 @@ const (
 	schemaVersion = 6 // raw JSON management responses (no HTML escaping)
 	providerKey   = "loomy"
 	pluginName    = "loomy-accounts"
-	pluginVer     = "1.0.2"
+	pluginVer     = "1.0.3"
 	modelPrefix   = "lm/"
 )
 

@@ -14,7 +14,7 @@ env:
 jobs:
   darwin:
     # 一台 Apple Silicon 机器同时产出 arm64 与 amd64（clang 可跨架构，SDK 是通用的）
-    runs-on: macos-15-arm64
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 

@@ -12,33 +12,9 @@ env:
   PLUGIN_ID: loomy
 
 jobs:
-  build:
-    name: ${{ matrix.goos }}/${{ matrix.goarch }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-14        # Apple Silicon
-            goos: darwin
-            goarch: arm64
-            lib: loomy.dylib
-          - runner: macos-13        # Intel
-            goos: darwin
-            goarch: amd64
-            lib: loomy.dylib
-          - runner: ubuntu-latest
-            goos: linux
-            goarch: amd64
-            lib: loomy.so
-          - runner: ubuntu-latest
-            goos: linux
-            goarch: arm64
-            lib: loomy.so
-          - runner: ubuntu-latest
-            goos: windows
-            goarch: amd64
-            lib: loomy.dll
-    runs-on: ${{ matrix.runner }}
+  darwin:
+    # 一台 Apple Silicon 机器同时产出 arm64 与 amd64（clang 可跨架构，SDK 是通用的）
+    runs-on: macos-15-arm64
     steps:
       - uses: actions/checkout@v4
 
@@ -47,47 +23,121 @@ jobs:
           go-version-file: plugin/go.mod
           cache-dependency-path: plugin/go.sum
 
-      - name: Install cross toolchain
-        if: matrix.runner == 'ubuntu-latest'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64
-
-      - name: Build plugin
+      - name: Build both darwin arches
         shell: bash
         working-directory: plugin
         run: |
           set -euo pipefail
-          case "${{ matrix.goos }}-${{ matrix.goarch }}" in
-            linux-arm64)   export CC=aarch64-linux-gnu-gcc ;;
-            linux-amd64)   export CC=gcc ;;
-            windows-amd64) export CC=x86_64-w64-mingw32-gcc ;;
-            darwin-*)      export CC=clang ;;
-          esac
-          export GOOS="${{ matrix.goos }}" GOARCH="${{ matrix.goarch }}" CGO_ENABLED=1
-          go build -trimpath -buildmode=c-shared -o "../dist/${{ matrix.lib }}" .
-          file "../dist/${{ matrix.lib }}"
+          mkdir -p ../dist ../out
+          VER="${GITHUB_REF_NAME#v}"; [ -n "$VER" ] || VER="0.0.0-dev"
 
-      - name: Package
-        shell: bash
-        run: |
-          set -euo pipefail
-          VER="${GITHUB_REF_NAME#v}"
-          [ -n "$VER" ] || VER="0.0.0-dev"
-          NAME="${PLUGIN_ID}_${VER}_${{ matrix.goos }}_${{ matrix.goarch }}.zip"
-          ( cd dist && zip -q "$NAME" "${{ matrix.lib }}" )
-          mkdir -p out && mv "dist/$NAME" out/
-          echo "VER=$VER" >> "$GITHUB_ENV"
+          cat > ../cc-arm64 <<'EOF'
+          #!/bin/sh
+          exec clang -arch arm64 "$@"
+          EOF
+          cat > ../cc-amd64 <<'EOF'
+          #!/bin/sh
+          exec clang -arch x86_64 "$@"
+          EOF
+          chmod +x ../cc-arm64 ../cc-amd64
+
+          for arch in arm64 amd64; do
+            CC="$PWD/../cc-$arch" CGO_ENABLED=1 GOOS=darwin GOARCH="$arch" \
+              go build -trimpath -buildmode=c-shared -o ../dist/loomy.dylib .
+            file ../dist/loomy.dylib
+            lipo -info ../dist/loomy.dylib || true
+            NAME="${PLUGIN_ID}_${VER}_darwin_${arch}.zip"
+            ( cd ../dist && zip -q "$NAME" loomy.dylib && mv "$NAME" ../out/ )
+            rm -f ../dist/loomy.dylib
+          done
+          ls -l ../out
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.goos }}-${{ matrix.goarch }}
+          name: darwin
+          path: out/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: plugin/go.mod
+          cache-dependency-path: plugin/go.sum
+
+      - name: Toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu
+
+      - name: Build
+        shell: bash
+        working-directory: plugin
+        run: |
+          set -euo pipefail
+          mkdir -p ../dist ../out
+          VER="${GITHUB_REF_NAME#v}"; [ -n "$VER" ] || VER="0.0.0-dev"
+          if [ "${{ matrix.arch }}" = "arm64" ]; then CC=aarch64-linux-gnu-gcc; else CC=gcc; fi
+          CGO_ENABLED=1 GOOS=linux GOARCH=${{ matrix.arch }} CC="$CC" \
+            go build -trimpath -buildmode=c-shared -o ../dist/loomy.so .
+          file ../dist/loomy.so
+          NAME="${PLUGIN_ID}_${VER}_linux_${{ matrix.arch }}.zip"
+          ( cd ../dist && zip -q "$NAME" loomy.so && mv "$NAME" ../out/ )
+          ls -l ../out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: out/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  windows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: plugin/go.mod
+          cache-dependency-path: plugin/go.sum
+
+      - name: Toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-mingw-w64-x86-64
+
+      - name: Build
+        shell: bash
+        working-directory: plugin
+        run: |
+          set -euo pipefail
+          mkdir -p ../dist ../out
+          VER="${GITHUB_REF_NAME#v}"; [ -n "$VER" ] || VER="0.0.0-dev"
+          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc \
+            go build -trimpath -buildmode=c-shared -o ../dist/loomy.dll .
+          file ../dist/loomy.dll
+          NAME="${PLUGIN_ID}_${VER}_windows_amd64.zip"
+          ( cd ../dist && zip -q "$NAME" loomy.dll && mv "$NAME" ../out/ )
+          ls -l ../out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-amd64
           path: out/*.zip
           if-no-files-found: error
           retention-days: 7
 
   publish:
-    needs: build
+    needs: [darwin, linux, windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

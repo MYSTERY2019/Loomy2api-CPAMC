@@ -1,0 +1,112 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PLUGIN_ID: loomy
+
+jobs:
+  build:
+    name: ${{ matrix.goos }}/${{ matrix.goarch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14        # Apple Silicon
+            goos: darwin
+            goarch: arm64
+            lib: loomy.dylib
+          - runner: macos-13        # Intel
+            goos: darwin
+            goarch: amd64
+            lib: loomy.dylib
+          - runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            lib: loomy.so
+          - runner: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            lib: loomy.so
+          - runner: ubuntu-latest
+            goos: windows
+            goarch: amd64
+            lib: loomy.dll
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: plugin/go.mod
+          cache-dependency-path: plugin/go.sum
+
+      - name: Install cross toolchain
+        if: matrix.runner == 'ubuntu-latest'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64
+
+      - name: Build plugin
+        shell: bash
+        working-directory: plugin
+        run: |
+          set -euo pipefail
+          case "${{ matrix.goos }}-${{ matrix.goarch }}" in
+            linux-arm64)   export CC=aarch64-linux-gnu-gcc ;;
+            linux-amd64)   export CC=gcc ;;
+            windows-amd64) export CC=x86_64-w64-mingw32-gcc ;;
+            darwin-*)      export CC=clang ;;
+          esac
+          export GOOS="${{ matrix.goos }}" GOARCH="${{ matrix.goarch }}" CGO_ENABLED=1
+          go build -trimpath -buildmode=c-shared -o "../dist/${{ matrix.lib }}" .
+          file "../dist/${{ matrix.lib }}"
+
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          VER="${GITHUB_REF_NAME#v}"
+          [ -n "$VER" ] || VER="0.0.0-dev"
+          NAME="${PLUGIN_ID}_${VER}_${{ matrix.goos }}_${{ matrix.goarch }}.zip"
+          ( cd dist && zip -q "$NAME" "${{ matrix.lib }}" )
+          mkdir -p out && mv "dist/$NAME" out/
+          echo "VER=$VER" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.goos }}-${{ matrix.goarch }}
+          path: out/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          set -euo pipefail
+          cd artifacts
+          ls -l
+          sha256sum *.zip > checksums.txt
+          cat checksums.txt
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.zip
+            artifacts/checksums.txt
+          fail_on_unmatched_files: true
+          generate_release_notes: true

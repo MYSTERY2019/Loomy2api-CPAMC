@@ -127,6 +127,36 @@ func parseConfig(raw []byte) {
 	}
 }
 
+// hostGuard refuses any outbound request whose host is not the configured
+// gateway or account host. The redirect policy already stops a cross-host hop,
+// but this covers the other ways a credential-bearing request could end up
+// somewhere unexpected: a mistyped base-url, a future code path, a redirect
+// that slipped through a proxy.
+type hostGuard struct{ base http.RoundTripper }
+
+func (h hostGuard) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req == nil || req.URL == nil {
+		return nil, errors.New("host guard: nil request")
+	}
+	if !allowedHost(req.URL.Host) {
+		return nil, fmt.Errorf("host guard: refusing request to %q, which is not the configured gateway or account host", req.URL.Host)
+	}
+	return h.base.RoundTrip(req)
+}
+
+func allowedHost(host string) bool {
+	cfg := currentConfig()
+	for _, base := range []string{cfg.BaseURL, cfg.AccountURL, defaultBase, defaultAccountBase} {
+		if base == "" {
+			continue
+		}
+		if u, err := url.Parse(base); err == nil && strings.EqualFold(u.Host, host) {
+			return true
+		}
+	}
+	return false
+}
+
 // safeRedirect keeps credential-bearing requests on the host they were meant
 // for. Go copies non-standard headers (our "token" header carries the Loomy
 // session) to the redirect target; only Authorization, WWW-Authenticate,
@@ -169,7 +199,7 @@ func httpClient(timeout time.Duration) *http.Client {
 			transport.Proxy = http.ProxyURL(parsed)
 		}
 	}
-	c := &http.Client{Timeout: timeout, Transport: transport, CheckRedirect: safeRedirect}
+	c := &http.Client{Timeout: timeout, Transport: hostGuard{base: transport}, CheckRedirect: safeRedirect}
 	clientCache[timeout] = c
 	return c
 }

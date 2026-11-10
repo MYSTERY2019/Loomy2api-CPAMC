@@ -20,7 +20,7 @@ The control panel supports English and Chinese. This project is a CLIProxyAPI pl
 - Renews password-backed sessions; accounts using manual login can be signed in again by SMS.
 - Runs daily check-ins and shows balances, usage, request history and runtime events.
 - Applies local account selection and point-use safeguards.
-- Refuses cross-host redirects on credential-bearing requests, so a redirecting upstream cannot move a session header (or a signed request body) to an unintended host.
+- Keeps credential-bearing traffic on the configured gateway/account hosts: cross-host redirects are refused, and a transport-level host guard rejects any request aimed at another host.
 - Includes a bilingual control panel with no external runtime assets or frontend build step.
 
 Upstream rewards, model availability, prices and error responses can change. Local safeguards reduce risk, but they cannot guarantee a spending limit.

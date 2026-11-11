@@ -136,8 +136,53 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  windows-arm64:
+    # mingw-w64 on Ubuntu only targets x86; windows/arm64 needs a clang that
+    # speaks aarch64-w64-mingw32, which zig ships with its own libc.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: plugin/go.mod
+          cache-dependency-path: plugin/go.sum
+
+      - name: Toolchain (zig for aarch64-windows-gnu)
+        run: |
+          set -euo pipefail
+          curl -sSL -o /tmp/zig.tar.xz https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz
+          tar -C /tmp -xf /tmp/zig.tar.xz
+          /tmp/zig-linux-x86_64-0.13.0/zig version
+
+      - name: Build
+        shell: bash
+        working-directory: plugin
+        run: |
+          set -euo pipefail
+          mkdir -p ../dist ../out
+          VER="${GITHUB_REF_NAME#v}"; [ -n "$VER" ] || VER="0.0.0-dev"
+          cat > ../cc-win-arm64 <<'EOF'
+          #!/bin/sh
+          exec /tmp/zig-linux-x86_64-0.13.0/zig cc -target aarch64-windows-gnu "$@"
+          EOF
+          chmod +x ../cc-win-arm64
+          CGO_ENABLED=1 GOOS=windows GOARCH=arm64 CC="$PWD/../cc-win-arm64" \
+            go build -trimpath -buildmode=c-shared -o ../dist/loomy.dll .
+          file ../dist/loomy.dll
+          NAME="${PLUGIN_ID}_${VER}_windows_arm64.zip"
+          ( cd ../dist && zip -q "$NAME" loomy.dll && mv "$NAME" ../out/ )
+          ls -l ../out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-arm64
+          path: out/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
   publish:
-    needs: [darwin, linux, windows]
+    needs: [darwin, linux, windows, windows-arm64]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

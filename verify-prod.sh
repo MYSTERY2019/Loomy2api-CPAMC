@@ -3,7 +3,7 @@
 # Optional: MGMT_KEY=<plaintext management key> bash verify-prod.sh  → also checks the console API.
 # The secret-key in config.yaml is a bcrypt hash once CPA has started; it will not work here.
 CFG=${CFG:-${CPA_CONFIG:-$HOME/cliproxy/config.yaml}}
-B=${BASE_URL:-${B:-${B}}}
+B=${BASE_URL:-${B:-http://127.0.0.1:8317}}
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 [ -r "$HERE/prod-lib.sh" ] || { echo "!! 缺少 $HERE/prod-lib.sh（和本脚本一起拷到 Linux host）"; exit 1; }
 . "$HERE/prod-lib.sh"

@@ -548,7 +548,7 @@ type accountRow struct {
 	File        string  `json:"file"`
 	Phone       string  `json:"phone"`
 	Note        string  `json:"note"`
-	State       string  `json:"state"` // ok | disabled | cooldown | invalid | error
+	State       string  `json:"state"` // ok | disabled | cooldown | invalid | stale | error
 	StateDetail string  `json:"state_detail,omitempty"`
 	CooldownTo  int64   `json:"cooldown_to,omitempty"`
 	Permanent   float64 `json:"permanent"`
@@ -571,9 +571,11 @@ type accountRow struct {
 }
 
 type pointsCacheEntry struct {
-	p   pointsInfo
-	err error
-	at  time.Time
+	p        pointsInfo
+	err      error
+	at       time.Time
+	lastGood pointsInfo // newest successful reading, kept across upstream failures
+	lastOK   time.Time
 }
 
 var (
@@ -591,6 +593,11 @@ func invalidatePoints(authIndex string) {
 	}
 }
 
+// pointsPanelTimeout bounds the points lookup behind the account list. The
+// browser abandons an overview call somewhere around 16-20s, so a longer wait
+// only turns a stale-but-usable row into a 502.
+const pointsPanelTimeout = 12 * time.Second
+
 func cachedPoints(authIndex, session string, force bool) pointsCacheEntry {
 	pointsMu.Lock()
 	e, ok := pointsCache[authIndex]
@@ -598,12 +605,47 @@ func cachedPoints(authIndex, session string, force bool) pointsCacheEntry {
 	if ok && !force && time.Since(e.at) < 60*time.Second {
 		return e
 	}
-	p, err := fetchPoints(session)
-	e = pointsCacheEntry{p: p, err: err, at: time.Now()}
+	p, err := fetchPointsWithin(session, pointsPanelTimeout)
+	if err == nil {
+		e.lastGood, e.lastOK = p, time.Now()
+	}
+	e = pointsCacheEntry{p: p, err: err, at: time.Now(), lastGood: e.lastGood, lastOK: e.lastOK}
 	pointsMu.Lock()
 	pointsCache[authIndex] = e
 	pointsMu.Unlock()
 	return e
+}
+
+// pointsState maps a points lookup onto the row state the panel shows.
+//
+// An authError means the credential itself is dead, so the row says invalid. Any
+// other failure is upstream trouble: the account is probably fine, so keep the
+// last known balance, mark it stale, and say how old it is. Only a failure with
+// no earlier success at all stays "error".
+func pointsState(pe pointsCacheEntry) (state string, p pointsInfo, detail string) {
+	if pe.err == nil {
+		return "ok", pe.p, ""
+	}
+	if _, ok := pe.err.(*authError); ok {
+		return "invalid", pointsInfo{}, pe.err.Error()
+	}
+	if !pe.lastOK.IsZero() {
+		age := time.Since(pe.lastOK)
+		return "stale", pe.lastGood, fmt.Sprintf("%s（显示 %s前读到的数值）", pe.err.Error(), shortAge(age))
+	}
+	return "error", pointsInfo{}, pe.err.Error()
+}
+
+// shortAge renders a duration the way an operator reads it: seconds under a
+// minute, whole minutes after that.
+func shortAge(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%d 秒", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%d 分钟", int(d.Minutes()))
+	}
+	return fmt.Sprintf("%d 小时", int(d.Hours()))
 }
 
 func buildOverview(force bool) map[string]any {
@@ -633,11 +675,11 @@ func buildOverview(force bool) map[string]any {
 	wg.Wait()
 
 	type summary struct {
-		Accounts, Active, Unhealthy int
-		Available, Today, TodayUsed float64
-		Requests, RequestsOK        int64
-		Tokens, AvgMS               int64
-		ExpiringSoon                int
+		Accounts, Active, Unhealthy, Stale int
+		Available, Today, TodayUsed        float64
+		Requests, RequestsOK               int64
+		Tokens, AvgMS                      int64
+		ExpiringSoon                       int
 	}
 	s := summary{Accounts: len(rows)}
 	for i := range rows {
@@ -646,11 +688,14 @@ func buildOverview(force bool) map[string]any {
 			r.TodayReq, r.TodayFail, r.LastUsed, r.LastError = a.Today, a.TodayFail, a.LastTS, a.LastError
 		}
 		switch r.State {
-		case "ok", "cooldown":
+		case "ok", "cooldown", "stale":
 			s.Active++
 			s.Available += r.Available
 			s.Today += r.Daily
 			s.TodayUsed += dailyGrant - r.Daily
+			if r.State == "stale" {
+				s.Stale++
+			}
 		case "disabled":
 		default:
 			s.Unhealthy++
@@ -665,7 +710,7 @@ func buildOverview(force bool) map[string]any {
 		"updated_at": time.Now().UnixMilli(),
 		"version":    pluginVer,
 		"summary": map[string]any{
-			"accounts": s.Accounts, "active": s.Active, "unhealthy": s.Unhealthy,
+			"accounts": s.Accounts, "active": s.Active, "unhealthy": s.Unhealthy, "stale": s.Stale,
 			"available": s.Available, "today": s.Today, "today_used": s.TodayUsed,
 			"requests": s.Requests, "requests_ok": s.RequestsOK, "tokens": s.Tokens, "avg_ms": s.AvgMS,
 			"expiring_soon": s.ExpiringSoon,
@@ -697,16 +742,12 @@ func buildRow(f hostAuthEntry, force bool) accountRow {
 	row.DaysLeft, row.DaysExact = sessionDaysLeft(auth, f.ModTime)
 	pe := cachedPoints(f.AuthIndex, auth.Session, force)
 	row.PointsAt = pe.at.UnixMilli()
-	if pe.err != nil {
-		if _, ok := pe.err.(*authError); ok {
-			row.State = "invalid"
-		} else {
-			row.State = "error"
-		}
-		row.StateDetail = pe.err.Error()
-	} else {
-		row.Permanent, row.Daily, row.Available = pe.p.Permanent, pe.p.Daily, pe.p.Available
+	state, pts, detail := pointsState(pe)
+	row.State, row.StateDetail = state, detail
+	if state == "stale" {
+		row.PointsAt = pe.lastOK.UnixMilli() // these numbers date from then, not now
 	}
+	row.Permanent, row.Daily, row.Available = pts.Permanent, pts.Daily, pts.Available
 	if f.Disabled || strings.EqualFold(f.Status, "disabled") {
 		row.State = "disabled"
 	} else if row.State == "ok" && !f.NextRetryAfter.IsZero() && f.NextRetryAfter.After(time.Now()) {

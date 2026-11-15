@@ -448,7 +448,14 @@ type pointsInfo struct {
 }
 
 func fetchPoints(session string) (pointsInfo, error) {
-	raw, status, err := gatewayGet(pointsPath, session, 20*time.Second, 65536)
+	return fetchPointsWithin(session, 20*time.Second)
+}
+
+// fetchPointsWithin is fetchPoints with a caller-chosen deadline. The panel
+// path uses a shorter one: an overview call the browser already gave up on is
+// worse than an overview built from the last known balance.
+func fetchPointsWithin(session string, timeout time.Duration) (pointsInfo, error) {
+	raw, status, err := gatewayGet(pointsPath, session, timeout, 65536)
 	if err != nil {
 		return pointsInfo{}, err
 	}

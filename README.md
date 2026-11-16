@@ -19,6 +19,7 @@ The control panel supports English and Chinese. This project is a CLIProxyAPI pl
 - Manages multiple Loomy accounts, sessions, priorities and status.
 - Renews password-backed sessions; accounts using manual login can be signed in again by SMS.
 - Runs daily check-ins and shows balances, usage, request history and runtime events.
+- Keeps routing on the last verified model catalogue for a short grace window when a refresh fails, so gateway TLS hiccups do not become caller-visible 502s.
 - Applies local account selection and point-use safeguards.
 - Keeps credential-bearing traffic on the configured gateway/account hosts: cross-host redirects are refused, and a transport-level host guard rejects any request aimed at another host.
 - Includes a bilingual control panel with no external runtime assets or frontend build step.

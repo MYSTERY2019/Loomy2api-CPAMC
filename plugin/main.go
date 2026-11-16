@@ -78,7 +78,7 @@ const (
 	schemaVersion = 6 // raw JSON management responses (no HTML escaping)
 	providerKey   = "loomy"
 	pluginName    = "loomy-accounts"
-	pluginVer     = "1.0.5"
+	pluginVer     = "1.0.6"
 	// repoHome and pluginLogo surface in the host's plugin list. CPA rejects a
 	// plugin whose metadata has an empty GitHubRepository ("returned invalid
 	// metadata or no capabilities"), so these must never be blanked.

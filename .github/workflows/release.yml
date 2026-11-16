@@ -185,6 +185,12 @@ jobs:
     needs: [darwin, linux, windows, windows-arm64]
     runs-on: ubuntu-latest
     steps:
+      # CHANGELOG.md and the tag history drive the release body, so the publish
+      # job needs the repository itself, not just the built artifacts.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -198,11 +204,46 @@ jobs:
           sha256sum *.zip > checksums.txt
           cat checksums.txt
 
+      - name: Release notes from CHANGELOG
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VER="${TAG#v}"
+          # Take the "## v<version> ..." section, up to the next "## " heading.
+          awk -v ver="$VER" '
+            /^## / {
+              if (found) exit
+              heading = $0
+              sub(/^## +/, "", heading)
+              split(heading, parts, /[ \t]+/)
+              key = parts[1]
+              sub(/^v/, "", key)
+              if (key == ver) { found = 1; print; next }
+            }
+            found { print }
+          ' CHANGELOG.md > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "::warning::CHANGELOG.md has no section for ${VER}; publishing the compare link only"
+            printf 'See [CHANGELOG.md](CHANGELOG.md) for the full history.\n' > release_notes.md
+          fi
+          PREV="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
+          {
+            echo
+            if [ -n "$PREV" ]; then
+              echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${PREV}...${TAG}"
+            else
+              echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/commits/${TAG}"
+            fi
+          } >> release_notes.md
+          echo "----- release_notes.md -----"
+          sed -n '1,24p' release_notes.md
+
       - uses: softprops/action-gh-release@v2
         with:
+          body_path: release_notes.md
           files: |
             artifacts/*.zip
             artifacts/checksums.txt
           fail_on_unmatched_files: true
           overwrite_files: true
-          generate_release_notes: true

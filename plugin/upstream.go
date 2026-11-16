@@ -144,11 +144,12 @@ type catalogRequestError struct {
 func (e *catalogRequestError) Error() string { return e.message }
 
 type catalogCache struct {
-	mu      sync.Mutex
-	models  []gatewayModel
-	at      time.Time
-	retryAt time.Time
-	err     error
+	mu         sync.Mutex
+	models     []gatewayModel
+	at         time.Time
+	retryAt    time.Time
+	staleUntil time.Time
+	err        error
 }
 
 func accountCatalogCache(session string) *catalogCache {
@@ -192,7 +193,7 @@ func cachedModelUnion() []gatewayModel {
 	var lists [][]gatewayModel
 	for _, e := range entries {
 		e.mu.Lock()
-		if time.Since(e.at) < 10*time.Minute {
+		if time.Since(e.at) < catalogueFreshFor {
 			lists = append(lists, e.models)
 		}
 		e.mu.Unlock()
@@ -362,12 +363,37 @@ func noteModelsFailure(msg string) {
 	}
 }
 
+// staleCatalogueGrace is how long the last verified catalogue keeps routing after a
+// failed refresh attempt.
+const staleCatalogueGrace = 60 * time.Second
+
+// catalogueFreshFor is how long a verified catalogue is reused before the next
+// upstream refresh. Each refresh is one more chance to hit the gateway's TLS
+// flakiness, and model catalogues rarely change inside half an hour.
+const catalogueFreshFor = 30 * time.Minute
+
 // fetchGatewayModels caches each session separately for 10 minutes. A forced refresh
 // bypasses only that session; it never replaces another account's capabilities.
 func fetchGatewayModels(session string, force bool) (models []gatewayModel, resultErr error) {
 	e := accountCatalogCache(session)
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
+	// A verified catalogue stays routable for a short grace window after a failed
+	// refresh: the upstream drops TLS handshakes and resets connections now and then,
+	// and failing closed turned each of those into a caller-visible 502 even though
+	// the account still supported the model.
+	useStale := func() bool {
+		if len(e.models) == 0 {
+			return false
+		}
+		e.staleUntil = time.Now().Add(staleCatalogueGrace)
+		logEvent("warn", "models", "模型目录刷新失败，沿用上次成功目录（60s 内不再重试）", "")
+		return true
+	}
+	if !force && len(e.models) > 0 && time.Now().Before(e.staleUntil) {
+		return e.models, nil
+	}
 	if !force && e.err != nil && time.Now().Before(e.retryAt) {
 		return nil, e.err
 	}
@@ -380,7 +406,7 @@ func fetchGatewayModels(session string, force bool) (models []gatewayModel, resu
 			e.retryAt = time.Time{}
 		}
 	}()
-	if !force && len(e.models) > 0 && time.Since(e.at) < 10*time.Minute {
+	if !force && len(e.models) > 0 && time.Since(e.at) < catalogueFreshFor {
 		return e.models, nil
 	}
 
@@ -388,6 +414,9 @@ func fetchGatewayModels(session string, force bool) (models []gatewayModel, resu
 	if err != nil {
 		err = fmt.Errorf("models request: %v", err)
 		noteModelsFailure(err.Error())
+		if useStale() {
+			return e.models, nil
+		}
 		return nil, err
 	}
 	if code, desc := appErr(raw); code != "" {
@@ -397,17 +426,28 @@ func fetchGatewayModels(session string, force bool) (models []gatewayModel, resu
 		}
 		err = &catalogRequestError{status: mapped, message: fmt.Sprintf("models http %d, code %s: %s", status, code, desc)}
 		noteModelsFailure(err.Error())
+		if mapped != 401 && mapped != 403 && mapped != 429 && useStale() {
+			return e.models, nil
+		}
 		return nil, err
 	}
 	if status >= 400 {
 		err = &catalogRequestError{status: status, message: fmt.Sprintf("models http %d: %s", status, truncate(strings.TrimSpace(string(raw)), 200))}
 		noteModelsFailure(err.Error())
+		// Only a broken gateway (5xx) is worth covering with the last verified
+		// catalogue; 4xx answers carry auth or routing meaning the caller must see.
+		if status >= 500 && useStale() {
+			return e.models, nil
+		}
 		return nil, err
 	}
 	out, skipped, err := parseGatewayModels(raw)
 	if err != nil {
 		err = fmt.Errorf("models http %d: %v", status, err)
 		noteModelsFailure(err.Error())
+		if useStale() {
+			return e.models, nil
+		}
 		return nil, err
 	}
 	if skipped > 0 {
@@ -424,9 +464,12 @@ func fetchGatewayModels(session string, force bool) (models []gatewayModel, resu
 	if len(out) == 0 {
 		err = fmt.Errorf("models http %d: catalogue has no supported model (skipped %d)", status, skipped)
 		noteModelsFailure(err.Error())
+		if useStale() {
+			return e.models, nil
+		}
 		return nil, err
 	}
-	e.models, e.at = out, time.Now()
+	e.models, e.at, e.staleUntil = out, time.Now(), time.Time{}
 	return out, nil
 }
 

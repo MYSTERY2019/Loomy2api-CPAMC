@@ -23,6 +23,11 @@ type pluginConfig struct {
 	StreamMode    string // live | buffered
 	RetentionDays int
 	DefaultEffort string // none|low|medium|high|xhigh; empty = leave client's choice
+	// ImageTagModels forces the <image_base64> tag form for the listed models.
+	// Empty means "only after the upstream rejects the native image shape".
+	ImageTagModels []string
+	// ImageTagRetry enables that automatic fallback (default on).
+	ImageTagRetry bool
 }
 
 var (
@@ -44,7 +49,7 @@ func gateway(path string) string { return currentConfig().BaseURL + path }
 // parseConfig reads the flat "key: value" lines CPA hands to plugin.register.
 // The host may also send JSON; both are accepted.
 func parseConfig(raw []byte) {
-	next := pluginConfig{BaseURL: defaultBase, StreamMode: "live", RetentionDays: 30}
+	next := pluginConfig{BaseURL: defaultBase, StreamMode: "live", RetentionDays: 30, ImageTagRetry: true}
 	set := func(key, val string) {
 		val = strings.Trim(strings.TrimSpace(val), `"'`)
 		switch strings.ReplaceAll(strings.TrimSpace(key), "_", "-") {
@@ -74,6 +79,20 @@ func parseConfig(raw []byte) {
 				next.DefaultEffort = strings.ToLower(val)
 			case "", "off", "client":
 				next.DefaultEffort = ""
+			}
+		case "image-tag-models":
+			next.ImageTagModels = next.ImageTagModels[:0]
+			for _, part := range strings.Split(val, ",") {
+				if m := strings.ToLower(strings.Trim(strings.TrimSpace(part), `"`)); m != "" {
+					next.ImageTagModels = append(next.ImageTagModels, strings.TrimPrefix(m, "group/"))
+				}
+			}
+		case "image-tag-retry":
+			switch strings.ToLower(val) {
+			case "off", "false", "0", "no":
+				next.ImageTagRetry = false
+			case "", "on", "true", "1", "yes":
+				next.ImageTagRetry = true
 			}
 		}
 	}

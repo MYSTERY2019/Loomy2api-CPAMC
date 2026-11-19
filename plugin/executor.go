@@ -85,10 +85,13 @@ func handleExecute(body []byte, stream bool) []byte {
 		finish(502, "无法确认当前账号支持的模型")
 		return errorEnvelope("model_catalog_unavailable", "cannot verify selected account model catalogue", 502)
 	}
-	supported := false
+	supported, vision := false, false
 	for _, m := range models {
 		if m.ID == rec.Model && !strings.EqualFold(m.Type, "image") {
 			supported = true
+			// The catalogue's vision flag is a claim, not a measurement: when the
+			// gateway has already dropped an image for this model, stop trusting it.
+			vision = m.Capabilities.Vision && !visionDegraded(m.ID)
 			break
 		}
 	}
@@ -104,7 +107,15 @@ func handleExecute(body []byte, stream bool) []byte {
 		return env
 	}
 
-	payload := escapeNonASCII(applyDefaultEffort(stripModelPrefix(req.Payload)))
+	chatBody := applyDefaultEffort(stripModelPrefix(normalizeChatPayload(req.Payload, vision)))
+	// An operator pin beats the automatic fallback: some backends only ever accept
+	// the tag form, and spending a refused request first is wasteful.
+	if prefersImageTag(rec.Model) {
+		if tagged, ok := rewriteImagesToTags(chatBody); ok {
+			chatBody = tagged
+		}
+	}
+	payload := escapeNonASCII(chatBody)
 	ctx, cancel := context.WithTimeout(context.Background(), maxStreamDuration)
 	upReq, err := http.NewRequestWithContext(ctx, http.MethodPost, gateway(chatPath), bytes.NewReader(payload))
 	if err != nil {
@@ -119,6 +130,14 @@ func handleExecute(body []byte, stream bool) []byte {
 		upReq.Header.Set("Accept", "application/json")
 	}
 	setAuthHeaders(upReq, auth.Session)
+	// An image only reaches the model on the vision route: measured on loomyad, the
+	// same body without this header is answered from text alone (the image is
+	// replaced by a "[IMAGE: … not readable by this text-only model]" note and the
+	// prompt grows by ~40 tokens instead of ~145).
+	imageRequest := hasImagePart(chatBody)
+	if imageRequest {
+		upReq.Header.Set(purposeHeader, purposeVision)
+	}
 
 	client := httpClient(300 * time.Second)
 	if stream {
@@ -131,9 +150,28 @@ func handleExecute(body []byte, stream bool) []byte {
 		return errorEnvelope("upstream_error", err.Error(), 502)
 	}
 
-	if resp.StatusCode >= 400 {
-		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+	for attempt := 0; ; attempt++ {
+		if resp.StatusCode < 400 {
+			break
+		}
+		// The envelope is small, but read a little more than a status line so the
+		// image-shape refusal can be recognised reliably.
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 		resp.Body.Close()
+		// First-party backends reject the native image part with an opaque 400 while
+		// accepting the same bytes as an <image_base64> tag. Retry once (a second
+		// billed request, hence only on a real refusal) before handing the caller an
+		// error it cannot act on.
+		if attempt == 0 && currentConfig().ImageTagRetry && imageFormatRefusal(resp.StatusCode, msg) {
+			if tagged, ok := rewriteImagesToTags(chatBody); ok {
+				if retried, sendErr := sendTagged(client, ctx, tagged, upReq); sendErr == nil {
+					chatBody = tagged
+					resp = retried
+					logEvent("info", "vision", rec.Model+" 原生图片形态被上游拒绝，已按 <image_base64> 标记重发一次", "")
+					continue
+				}
+			}
+		}
 		cancel()
 		env := upstreamHTTPError(resp.StatusCode, msg)
 		code, _ := appErr(msg)
@@ -191,6 +229,9 @@ func handleExecute(body []byte, stream bool) []byte {
 		return businessError(code, desc)
 	}
 	rec.PromptTokens, rec.CompletionTokens = usageFrom(raw)
+	// A buffered body carries the whole transcript, so the degradation marker is
+	// visible here for both the JSON and the buffered-SSE fallback.
+	observeVisionMarker(raw, rec.Model)
 
 	if !stream {
 		finish(200, "")
@@ -211,6 +252,17 @@ func handleExecute(body []byte, stream bool) []byte {
 	})
 }
 
+// sendTagged repeats the request with the <image_base64> form of the same body,
+// reusing the headers of the original request (the session token lives there).
+func sendTagged(client *http.Client, ctx context.Context, body []byte, tmpl *http.Request) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, gateway(chatPath), bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header = tmpl.Header.Clone()
+	return client.Do(req)
+}
+
 // pumpStream forwards SSE events to the host one by one.
 func pumpStream(streamID string, first []byte, reader *bufio.Reader, rec *reqRecord) (int, string) {
 	emit := func(ev []byte) error {
@@ -226,11 +278,20 @@ func pumpStream(streamID string, first []byte, reader *bufio.Reader, rec *reqRec
 		_, _ = callHost("host.stream.close", payload)
 	}
 	ev := first
+	var tail []byte
 	for {
 		if len(bytes.TrimSpace(ev)) > 0 {
-			if p, c := usageFrom(sseData(ev)); p > 0 || c > 0 {
+			data := sseData(ev)
+			if p, c := usageFrom(data); p > 0 || c > 0 {
 				rec.PromptTokens, rec.CompletionTokens = p, c
 			}
+			// Content deltas can split the marker, so scan a rolling tail instead of
+			// the individual event.
+			tail = append(tail, data...)
+			if len(tail) > 4096 {
+				tail = append([]byte(nil), tail[len(tail)-4096:]...)
+			}
+			observeVisionMarker(tail, rec.Model)
 			if err := emit(ev); err != nil {
 				return 499, "client closed: " + err.Error()
 			}

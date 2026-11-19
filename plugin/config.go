@@ -205,11 +205,15 @@ func httpClient(timeout time.Duration) *http.Client {
 		return c
 	}
 	transport := &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
-		MaxIdleConns:          32,
-		MaxIdleConnsPerHost:   16,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   15 * time.Second,
+		Proxy:               http.ProxyFromEnvironment,
+		MaxIdleConns:        32,
+		MaxIdleConnsPerHost: 16,
+		IdleConnTimeout:     90 * time.Second,
+		// The gateway's TLS handshake fails intermittently (~2% of requests, in
+		// bursts). 15s here meant a burst of three accounts stalled a turn for 45s
+		// before CPA reached a healthy one; 5s bounds that at 15s and is still far
+		// above the normal handshake time (0.5s from this host).
+		TLSHandshakeTimeout:   5 * time.Second,
 		ResponseHeaderTimeout: 120 * time.Second,
 		ForceAttemptHTTP2:     true,
 	}

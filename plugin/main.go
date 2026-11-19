@@ -78,13 +78,13 @@ const (
 	schemaVersion = 6 // raw JSON management responses (no HTML escaping)
 	providerKey   = "loomy"
 	pluginName    = "loomy-accounts"
-	pluginVer     = "1.0.7"
+	pluginVer     = "1.0.8"
 	// repoHome and pluginLogo surface in the host's plugin list. CPA rejects a
 	// plugin whose metadata has an empty GitHubRepository ("returned invalid
 	// metadata or no capabilities"), so these must never be blanked.
-	repoHome      = "https://github.com/MYSTERY2019/Loomy2api-CPAMC"
-	pluginLogo    = "https://raw.githubusercontent.com/MYSTERY2019/Loomy2api-CPAMC/main/docs/assets/logo.png"
-	modelPrefix   = "lm/"
+	repoHome    = "https://github.com/MYSTERY2019/Loomy2api-CPAMC"
+	pluginLogo  = "https://raw.githubusercontent.com/MYSTERY2019/Loomy2api-CPAMC/main/docs/assets/logo.png"
+	modelPrefix = "lm/"
 )
 
 func main() {}

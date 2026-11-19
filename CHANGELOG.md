@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.0.8 - 2026-11-20
+
+### Reliability
+- **TLS handshake timeout cut from 15s to 5s.** The gateway's handshake fails
+  intermittently — roughly 2% of requests, and in bursts where three or four accounts
+  fail at once. With a 15s per-attempt timeout a burst stalled a turn for ~45s before
+  the host rotated to a healthy account (measured: 15.2s + 15.2s + 15.2s, then a 2.1s
+  success). 5s bounds the same burst at ~15s and stays two orders of magnitude above
+  the normal handshake time on the same host (~0.5s), so healthy requests are
+  unaffected.
+
 ## v1.0.7 - 2026-11-20
 
 ### Vision

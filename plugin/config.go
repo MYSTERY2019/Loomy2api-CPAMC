@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/http"
@@ -213,9 +214,13 @@ func httpClient(timeout time.Duration) *http.Client {
 		// bursts). 15s here meant a burst of three accounts stalled a turn for 45s
 		// before CPA reached a healthy one; 5s bounds that at 15s and is still far
 		// above the normal handshake time (0.5s from this host).
-		TLSHandshakeTimeout:   5 * time.Second,
-		ResponseHeaderTimeout: 120 * time.Second,
-		ForceAttemptHTTP2:     true,
+		TLSHandshakeTimeout:   20 * time.Second,
+		ResponseHeaderTimeout: 150 * time.Second,
+		// The gateway answers HTTP/2 ALPN but never sends a response on it (measured
+		// 2026-11-20: h2 5/5 hung for 35s, h1.1 4/5 answered in <1s), so stay on
+		// HTTP/1.1 and disable h2 upgrade entirely.
+		ForceAttemptHTTP2: false,
+		TLSNextProto:      map[string]func(string, *tls.Conn) http.RoundTripper{},
 	}
 	if p := currentConfig().ProxyURL; p != "" {
 		if parsed, err := url.Parse(p); err == nil {

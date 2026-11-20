@@ -4,7 +4,7 @@
 # Rolls back the previous .so and config automatically if the plugin fails to register.
 set -uo pipefail
 
-SRC=${1:-$HOME/loomy-plugin/loomy-linux-arm64.so}
+SRC=${1:-$HERE/build/loomy-linux-arm64.so}
 CFG=${CFG:-${CPA_CONFIG:-$HOME/cliproxy/config.yaml}}
 PLUGDIR=${PLUGDIR:-${CPA_PLUGIN_DIR:-$HOME/cliproxy/plugins/linux/arm64}}
 AUTHDIR=${AUTHDIR:-${CPA_AUTH_DIR:-$HOME/.cli-proxy-api}}

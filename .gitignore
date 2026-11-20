@@ -23,3 +23,7 @@ build/
 /loomy-linux-*.h
 /build/
 /rel/
+
+# 本机 arm64 构建产物（不入库）
+loomy-*-arm64.so
+loomy-*-arm64.h

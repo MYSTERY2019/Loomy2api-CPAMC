@@ -15,7 +15,11 @@ import (
 	"unicode/utf8"
 )
 
-const maxStreamDuration = 15 * time.Minute
+const maxStreamDuration = 8 * time.Minute
+
+// firstEventTimeout bounds the wait for the first SSE event in the live-stream
+// path, so a stalled upstream fails fast instead of hanging for maxStreamDuration.
+const firstEventTimeout = 150 * time.Second
 
 type execRequest struct {
 	AuthID       string
@@ -187,7 +191,23 @@ func handleExecute(body []byte, stream bool) []byte {
 		// Peek the first event synchronously so business errors still map to a
 		// proper HTTP status (and CPA cooldown) before we commit to streaming.
 		reader := bufio.NewReaderSize(resp.Body, 64*1024)
-		first, errFirst := readSSEEvent(reader)
+		type sseRead struct {
+			data []byte
+			err  error
+		}
+		firstCh := make(chan sseRead, 1)
+		go func() { d, e := readSSEEvent(reader); firstCh <- sseRead{d, e} }()
+		var first []byte
+		var errFirst error
+		select {
+		case r := <-firstCh:
+			first, errFirst = r.data, r.err
+		case <-time.After(firstEventTimeout):
+			resp.Body.Close()
+			cancel()
+			finish(502, "upstream first event timeout")
+			return errorEnvelope("upstream_error", "upstream stream stalled: no event within 60s", 502)
+		}
 		if errFirst != nil && len(first) == 0 {
 			resp.Body.Close()
 			cancel()
